@@ -16,9 +16,14 @@ jobs:
         with:
           php-version: 8.3
 
-      - name: Validate composer.json
-        run: composer validate --strict --no-check-all || true
-
       - name: PHP Syntax Check
         run: |
           find application -name '*.php' -not -path '*/vendor/*' -exec php -l {} \;
+
+  deploy:
+    name: Deploy ke Staging
+    runs-on: self-hosted
+    needs: quality
+    steps:
+      - name: Jalankan deploy script
+        run: /usr/local/bin/deploy-ipak-skm.sh
