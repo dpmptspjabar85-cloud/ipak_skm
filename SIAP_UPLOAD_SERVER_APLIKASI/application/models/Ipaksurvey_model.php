@@ -801,6 +801,114 @@ class Ipaksurvey_model extends CI_Model
         return $result;
     }
 
+    private function respondent_field_mode_rank($mode)
+    {
+        if ($mode === 'required') {
+            return 2;
+        }
+        if ($mode === 'optional') {
+            return 1;
+        }
+        return 0;
+    }
+
+    private function respondent_field_signature(array $field)
+    {
+        if (!empty($field['is_system'])) {
+            return 'system:' . strtolower((string) $field['field_key']);
+        }
+        $label = strtolower(trim((string) $field['field_label']));
+        $label = preg_replace('/[^a-z0-9]+/', ' ', $label);
+        $label = trim(preg_replace('/\s+/', ' ', $label));
+        $systemAliases = [
+            'email' => ['email', 'alamat email'],
+            'phone' => ['nomor telepon', 'no telepon', 'nomor hp', 'no hp', 'handphone'],
+            'name' => ['nama', 'nama lengkap', 'nama responden'],
+            'identity_number' => ['nomor identitas', 'nomor induk', 'nik', 'nib'],
+            'address' => ['alamat', 'alamat lengkap', 'alamat domisili'],
+            'age' => ['usia', 'umur'],
+            'gender' => ['jenis kelamin'],
+            'education' => ['pendidikan', 'pendidikan terakhir'],
+            'job' => ['pekerjaan'],
+            'service' => ['sektor', 'jenis layanan'],
+        ];
+        foreach ($systemAliases as $systemKey => $aliases) {
+            if (in_array($label, $aliases, true)) {
+                return 'system:' . $systemKey;
+            }
+        }
+        return 'custom:' . $label;
+    }
+
+    private function merge_respondent_field_rows(array $baseFields, array $additionalFields)
+    {
+        $signatures = [];
+        foreach ($baseFields as $fieldKey => $field) {
+            $signatures[$this->respondent_field_signature($field)] = $fieldKey;
+        }
+
+        foreach ($additionalFields as $fieldKey => $field) {
+            $signature = $this->respondent_field_signature($field);
+            if (!isset($signatures[$signature])) {
+                $targetKey = $fieldKey;
+                if (isset($baseFields[$targetKey])) {
+                    $targetKey = 'custom_m_' . substr(sha1($signature), 0, 16);
+                    $field['field_key'] = $targetKey;
+                }
+                $baseFields[$targetKey] = $field;
+                $signatures[$signature] = $targetKey;
+                continue;
+            }
+
+            $targetKey = $signatures[$signature];
+            $current = $baseFields[$targetKey];
+            if (
+                $this->respondent_field_mode_rank($field['field_mode'])
+                > $this->respondent_field_mode_rank($current['field_mode'])
+            ) {
+                $current['field_mode'] = $field['field_mode'];
+            }
+            if (empty($current['help_text']) && !empty($field['help_text'])) {
+                $current['help_text'] = $field['help_text'];
+            }
+            if (!empty($field['options'])) {
+                $currentOptions = !empty($current['options']) && is_array($current['options'])
+                    ? $current['options']
+                    : [];
+                $current['options'] = array_values(array_unique(array_merge($currentOptions, $field['options'])));
+                $current['field_options'] = json_encode($current['options'], JSON_UNESCAPED_SLASHES);
+            }
+            $baseFields[$targetKey] = $current;
+        }
+        return $baseFields;
+    }
+
+    public function get_effective_form_fields($formId, array $surveyIds = [])
+    {
+        $formId = (int) $formId;
+        $result = $this->get_form_fields($formId);
+        if (!$surveyIds) {
+            $surveyIds = $this->get_form_survey_ids($formId);
+        }
+        $surveyIds = array_values(array_filter(array_unique(array_map('intval', $surveyIds))));
+        if (count($surveyIds) < 2) {
+            return $result;
+        }
+
+        $standaloneForms = $this->get_standalone_forms_by_survey(false);
+        foreach ($surveyIds as $surveyId) {
+            if (
+                !isset($standaloneForms[$surveyId])
+                || (int) $standaloneForms[$surveyId]['form_id'] === $formId
+            ) {
+                continue;
+            }
+            $sourceFields = $this->get_form_fields((int) $standaloneForms[$surveyId]['form_id']);
+            $result = $this->merge_respondent_field_rows($result, $sourceFields);
+        }
+        return $result;
+    }
+
     private function form_field_defaults($requiresResi, $containsNib = false)
     {
         $defaults = [];
@@ -1151,7 +1259,10 @@ class Ipaksurvey_model extends CI_Model
                 $form['questions'][$questionId]['survey_names'][] = $survey['survey_name'];
             }
         }
-        $form['respondent_fields'] = $this->get_form_fields((int) $form['id']);
+        $form['respondent_fields'] = $this->get_effective_form_fields(
+            (int) $form['id'],
+            array_keys($form['surveys'])
+        );
         return $form;
     }
 

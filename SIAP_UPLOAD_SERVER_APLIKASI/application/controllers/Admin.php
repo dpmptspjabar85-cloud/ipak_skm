@@ -755,7 +755,9 @@ class Admin extends CI_Controller
         foreach ($forms as $index => $form) {
             $definition = $this->ipak->get_form_definition($form['form_code'], false);
             $forms[$index]['survey_ids'] = $this->ipak->get_form_survey_ids((int) $form['id']);
-            $forms[$index]['respondent_fields'] = $this->ipak->get_form_fields((int) $form['id']);
+            $forms[$index]['respondent_fields'] = !empty($definition['respondent_fields'])
+                ? $definition['respondent_fields']
+                : $this->ipak->get_form_fields((int) $form['id']);
             $forms[$index]['requires_resi'] = !empty($definition['requires_resi']);
             $forms[$index]['shortcut_surveys'] = [];
             $forms[$index]['shortcut_color'] = '#3049d8';
