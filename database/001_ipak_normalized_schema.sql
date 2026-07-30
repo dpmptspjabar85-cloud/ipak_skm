@@ -51,12 +51,9 @@ CREATE TABLE IF NOT EXISTS ipak_response_answers (
     KEY idx_ipak_response_resi (resi),
     KEY idx_ipak_response_question (question_id),
     KEY idx_ipak_response_option (answer_option_id),
-<<<<<<< HEAD
     CONSTRAINT fk_ipak_response_skm
         FOREIGN KEY (skm_data_id) REFERENCES skm_data_skm (kode)
         ON UPDATE CASCADE ON DELETE CASCADE,
-=======
->>>>>>> 563b877ee5432943018f22402774054db6dabfa4
     CONSTRAINT fk_ipak_response_question
         FOREIGN KEY (question_id) REFERENCES ipak_questions (id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -71,14 +68,10 @@ CREATE TABLE IF NOT EXISTS ipak_admin_roles (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id),
-<<<<<<< HEAD
     KEY idx_ipak_admin_role (role_name),
     CONSTRAINT fk_ipak_admin_role_user
         FOREIGN KEY (user_id) REFERENCES skm_cms_user (id)
         ON UPDATE CASCADE ON DELETE CASCADE
-=======
-    KEY idx_ipak_admin_role (role_name)
->>>>>>> 563b877ee5432943018f22402774054db6dabfa4
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 INSERT INTO ipak_questions
@@ -123,7 +116,4 @@ ON DUPLICATE KEY UPDATE
     option_value = VALUES(option_value),
     normalized_score = VALUES(normalized_score),
     sort_order = VALUES(sort_order);
-<<<<<<< HEAD
 
-=======
->>>>>>> 563b877ee5432943018f22402774054db6dabfa4

@@ -101,12 +101,8 @@ CREATE TABLE IF NOT EXISTS ipak_response_fields (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uq_ipak_response_field (skm_data_id, field_key),
-<<<<<<< HEAD
     KEY idx_ipak_response_field_key (field_key),
     CONSTRAINT fk_ipak_response_field_submission
         FOREIGN KEY (skm_data_id) REFERENCES skm_data_skm (kode)
         ON UPDATE CASCADE ON DELETE CASCADE
-=======
-    KEY idx_ipak_response_field_key (field_key)
->>>>>>> 563b877ee5432943018f22402774054db6dabfa4
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
