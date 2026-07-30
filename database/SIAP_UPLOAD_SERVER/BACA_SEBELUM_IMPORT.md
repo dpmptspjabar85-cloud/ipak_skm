@@ -40,3 +40,10 @@ superadmin awal tanpa menghapus pengguna yang sudah tersedia.
 Untuk server yang sudah memasang versi sebelumnya, impor
 `04_ALLOW_SHARED_QUESTIONS.sql`. Migration ini hanya melepas unique index lama
 pada `question_id`. Data survei dan pertanyaan yang sudah tersedia tidak dihapus.
+
+## Menampilkan atau menyembunyikan form di front office
+
+Untuk server yang hanya membutuhkan patch fitur terbaru, impor
+`05_FORM_PUBLIC_VISIBILITY.sql`. Semua form lama tetap ditampilkan secara default.
+Pengaturan ini hanya menyembunyikan kartu form dari dashboard dan katalog publik;
+form aktif tetap dapat dibuka melalui URL shortcut resminya.

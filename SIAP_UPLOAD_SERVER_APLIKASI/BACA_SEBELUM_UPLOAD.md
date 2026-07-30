@@ -44,3 +44,10 @@ database error pada halaman login.
 Versi ini menampilkan seluruh pertanyaan tersimpan pada pembuat dan pengaturan
 survei. Satu pertanyaan dapat dipakai oleh beberapa survei. Pertanyaan yang sama
 tetap tidak dapat dimasukkan dua kali ke dalam satu survei.
+
+## Visibilitas formulir di front office
+
+Superadmin dapat memilih apakah form aktif ditampilkan pada dashboard dan
+katalog “Pilih Formulir Survei”. Form yang disembunyikan tetap dapat diisi
+melalui URL shortcut resmi. Terapkan `05_FORM_PUBLIC_VISIBILITY.sql` atau paket
+database terbaru sebelum memakai pengaturan ini.

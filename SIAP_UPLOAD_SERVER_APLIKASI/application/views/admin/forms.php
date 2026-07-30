@@ -117,6 +117,7 @@
           <input type="hidden" name="form_id" value="0">
           <input type="hidden" name="form_kind" value="combined">
           <input type="hidden" name="is_active" value="1">
+          <input type="hidden" name="is_public_listed" value="1">
           <div class="question-config-grid">
             <div class="field">
               <label>Kode paket</label>
@@ -226,6 +227,7 @@ $formGroups = [
           </span>
           <span class="question-editor-meta"><?= (int) $form['is_default'] === 1 ? 'Form bawaan' : 'Form alternatif' ?></span>
           <span class="badge"><?= (int) $form['is_active'] === 1 ? 'Aktif' : 'Nonaktif' ?></span>
+          <span class="badge"><?= !empty($form['is_public_listed']) ? 'Tampil di front office' : 'Disembunyikan dari front office' ?></span>
         </summary>
         <div class="question-editor-body">
           <?php if (!empty($form['requires_resi'])): ?>
@@ -255,6 +257,12 @@ $formGroups = [
                 <div class="field"><label>Nama form</label><input name="form_name" maxlength="150" value="<?= html_escape($form['form_name']) ?>" required><small class="field-help"><b>Petunjuk:</b> Nama yang dilihat responden.</small></div>
                 <label class="question-active-check"><input type="checkbox" name="is_default" value="1" <?= (int) $form['is_default'] === 1 ? 'checked' : '' ?>> Jadikan form bawaan</label>
                 <label class="question-active-check"><input type="checkbox" name="is_active" value="1" <?= (int) $form['is_active'] === 1 ? 'checked' : '' ?>> Form aktif</label>
+                <input type="hidden" name="is_public_listed" value="0">
+                <label class="question-active-check">
+                  <input type="checkbox" name="is_public_listed" value="1" <?= !empty($form['is_public_listed']) ? 'checked' : '' ?>>
+                  Tampilkan pada pilihan formulir di front office
+                  <small class="field-help">Jika dimatikan, form tidak muncul di dashboard dan katalog publik, tetapi URL shortcut tetap dapat digunakan.</small>
+                </label>
                 <div class="field full"><label>Deskripsi</label><textarea name="description" maxlength="2000"><?= html_escape($form['description']) ?></textarea><small class="field-help"><b>Petunjuk:</b> Jelaskan tujuan form kepada pengelola.</small></div>
               </div>
 

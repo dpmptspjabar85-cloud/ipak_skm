@@ -168,6 +168,14 @@ $oldValue = function ($key, $fallback = '') use ($old) {
       <div class="field"><label>Kode survei <span class="required-mark">*</span></label><input name="survey_code" maxlength="30" required value="<?= html_escape($oldValue('survey_code')) ?>" placeholder="PELAYANAN"><small class="field-help">Kode harus berbeda dari survei yang sudah ada.</small></div>
       <div class="field"><label>Label nilai <span class="required-mark">*</span></label><input name="index_label" maxlength="60" required value="<?= html_escape($oldValue('index_label', 'Nilai Survei')) ?>" placeholder="Nilai Survei"></div>
       <div class="field"><label>Warna grafik</label><input name="color" type="color" value="<?= html_escape($oldValue('color', '#8b5cf6')) ?>"></div>
+      <input type="hidden" name="is_public_listed" value="0">
+      <label class="builder-choice">
+        <input type="checkbox" name="is_public_listed" value="1" <?= (int) $oldValue('is_public_listed', 1) === 1 ? 'checked' : '' ?>>
+        <span>
+          <b>Tampilkan di front office</b>
+          <small>Jika dimatikan, formulir hanya dapat dibuka melalui URL shortcut resmi.</small>
+        </span>
+      </label>
       <div class="field full"><label>Deskripsi</label><textarea name="description" maxlength="2000" placeholder="Jelaskan tujuan survei dengan singkat"><?= html_escape($oldValue('description')) ?></textarea></div>
     </div>
 

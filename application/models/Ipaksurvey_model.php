@@ -6,6 +6,18 @@ class Ipaksurvey_model extends CI_Model
     private $table = 'skm_data_skm';
     private $flexResponseTable = 'ipak_survey_responses';
     private $allResponsesView = 'ipak_all_responses';
+    private $formPublicVisibilitySupported = null;
+
+    private function supports_form_public_visibility()
+    {
+        if ($this->formPublicVisibilitySupported === null) {
+            $this->formPublicVisibilitySupported = $this->db->field_exists(
+                'is_public_listed',
+                'ipak_forms'
+            );
+        }
+        return $this->formPublicVisibilitySupported;
+    }
 
     public function create_response(array $input)
     {
@@ -619,6 +631,9 @@ class Ipaksurvey_model extends CI_Model
             $rows[$index]['id'] = (int) $row['id'];
             $rows[$index]['is_default'] = (int) $row['is_default'];
             $rows[$index]['is_active'] = (int) $row['is_active'];
+            $rows[$index]['is_public_listed'] = isset($row['is_public_listed'])
+                ? (int) $row['is_public_listed']
+                : 1;
             $rows[$index]['survey_count'] = (int) $row['survey_count'];
         }
         return $rows;
@@ -682,6 +697,9 @@ class Ipaksurvey_model extends CI_Model
             ->join('ipak_questions q', 'q.id = sq.question_id AND q.is_active = 1', 'inner')
             ->where('f.is_active', 1)
             ->where('s.is_active', 1);
+        if ($this->supports_form_public_visibility()) {
+            $this->db->where('f.is_public_listed', 1);
+        }
 
         $search = trim((string) $search);
         if ($search !== '') {
@@ -1079,13 +1097,17 @@ class Ipaksurvey_model extends CI_Model
         }
 
         $this->db->trans_start();
-        $this->db->insert('ipak_forms', [
+        $formData = [
             'form_code' => $formCode,
             'form_name' => 'Form ' . $survey['survey_name'],
             'description' => 'Form mandiri untuk ' . $survey['survey_name'] . '.',
             'is_default' => 0,
             'is_active' => (int) $survey['is_active'] === 1 ? 1 : 0,
-        ]);
+        ];
+        if ($this->supports_form_public_visibility()) {
+            $formData['is_public_listed'] = 1;
+        }
+        $this->db->insert('ipak_forms', $formData);
         $formId = (int) $this->db->insert_id();
         $this->db->insert('ipak_form_surveys', [
             'form_id' => $formId,
@@ -1234,6 +1256,9 @@ class Ipaksurvey_model extends CI_Model
         $form['id'] = (int) $form['id'];
         $form['is_default'] = (int) $form['is_default'];
         $form['is_active'] = (int) $form['is_active'];
+        $form['is_public_listed'] = isset($form['is_public_listed'])
+            ? (int) $form['is_public_listed']
+            : 1;
         $form['surveys'] = [];
         $form['questions'] = [];
         $form['requires_resi'] = false;
@@ -1544,6 +1569,23 @@ class Ipaksurvey_model extends CI_Model
             'is_default' => !empty($form['is_default']) ? 1 : 0,
             'is_active' => !empty($form['is_active']) ? 1 : 0,
         ];
+        if ($this->supports_form_public_visibility()) {
+            if (array_key_exists('is_public_listed', $form)) {
+                $data['is_public_listed'] = !empty($form['is_public_listed']) ? 1 : 0;
+            } elseif ($formId > 0) {
+                $existingVisibility = $this->db
+                    ->select('is_public_listed')
+                    ->where('id', $formId)
+                    ->limit(1)
+                    ->get('ipak_forms')
+                    ->row_array();
+                $data['is_public_listed'] = $existingVisibility
+                    ? (int) $existingVisibility['is_public_listed']
+                    : 1;
+            } else {
+                $data['is_public_listed'] = 1;
+            }
+        }
         $this->db->trans_start();
         if ($data['is_default']) {
             $this->db->update('ipak_forms', ['is_default' => 0]);

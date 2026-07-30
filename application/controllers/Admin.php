@@ -664,6 +664,7 @@ class Admin extends CI_Controller
                 'description' => trim((string) $this->input->post('description', true)),
                 'is_default' => (int) $this->input->post('is_default', true) === 1,
                 'is_active' => (int) $this->input->post('is_active', true) === 1,
+                'is_public_listed' => (int) $this->input->post('is_public_listed', true) === 1,
             ];
             $surveyIds = $this->input->post('survey_ids', true);
             $surveyIds = is_array($surveyIds)
@@ -861,6 +862,7 @@ class Admin extends CI_Controller
             $indexLabel = trim((string) $this->input->post('index_label', true));
             $description = trim((string) $this->input->post('description', true));
             $color = trim((string) $this->input->post('color', true));
+            $isPublicListed = (int) $this->input->post('is_public_listed', true) === 1;
 
             if (!preg_match('/^[A-Z0-9_-]{2,30}$/', $formCode)) {
                 $errors[] = 'Kode form harus berisi huruf, angka, garis bawah, atau tanda hubung tanpa spasi.';
@@ -1033,6 +1035,7 @@ class Admin extends CI_Controller
                     'description' => $description,
                     'is_default' => false,
                     'is_active' => true,
+                    'is_public_listed' => $isPublicListed,
                 ],
                 $questionIds,
                 $newQuestions,
