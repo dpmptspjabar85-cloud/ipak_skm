@@ -558,7 +558,7 @@ class Admin extends CI_Controller
                 if (!$errors) {
                     $savedSurveyId = $this->ipak->save_survey($survey, $questionIds);
                     if (!$savedSurveyId) {
-                        $errors[] = 'Survei belum berhasil disimpan.';
+                        $errors[] = 'Survei belum berhasil disimpan. Pastikan migration 04_ALLOW_SHARED_QUESTIONS.sql sudah diterapkan pada database server.';
                     } elseif (!$this->ipak->ensure_standalone_form($savedSurveyId)) {
                         $errors[] = 'Survei tersimpan, tetapi shortcut form mandiri belum berhasil dibuat.';
                     }
@@ -1037,7 +1037,10 @@ class Admin extends CI_Controller
                 $fieldSettings
             );
             if (!$result) {
-                $this->session->set_flashdata('wizard_error', 'Form belum berhasil dibuat. Tidak ada data yang disimpan.');
+                $this->session->set_flashdata(
+                    'wizard_error',
+                    'Form belum berhasil dibuat. Tidak ada data yang disimpan. Pastikan migration 04_ALLOW_SHARED_QUESTIONS.sql sudah diterapkan pada database server.'
+                );
                 $this->session->set_flashdata('wizard_old', $posted);
                 return redirect('admin/forms/create');
             }

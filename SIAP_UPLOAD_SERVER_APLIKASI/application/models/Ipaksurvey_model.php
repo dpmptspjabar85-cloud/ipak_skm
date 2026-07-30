@@ -1055,6 +1055,27 @@ class Ipaksurvey_model extends CI_Model
         return [];
     }
 
+    private function ensure_shared_question_schema()
+    {
+        $row = $this->db
+            ->query(
+                "SELECT COUNT(*) AS total
+                 FROM information_schema.statistics
+                 WHERE table_schema = DATABASE()
+                   AND table_name = 'ipak_survey_questions'
+                   AND index_name = 'uq_ipak_question_single_survey'"
+            )
+            ->row_array();
+
+        if (empty($row['total'])) {
+            return true;
+        }
+
+        return (bool) $this->db->query(
+            'ALTER TABLE ipak_survey_questions DROP INDEX uq_ipak_question_single_survey'
+        );
+    }
+
     public function get_form_survey_ids($formId)
     {
         $rows = $this->db
@@ -1312,6 +1333,9 @@ class Ipaksurvey_model extends CI_Model
     {
         $questionIds = array_values(array_filter(array_unique(array_map('intval', $questionIds))));
         if (!$questionIds) {
+            return false;
+        }
+        if (!$this->ensure_shared_question_schema()) {
             return false;
         }
         $surveyId = isset($survey['id']) ? (int) $survey['id'] : 0;
