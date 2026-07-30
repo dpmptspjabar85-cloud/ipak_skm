@@ -38,3 +38,9 @@ bentuk hash bcrypt.
 Untuk akun selain akun pemulihan, aplikasi tetap membaca `skm_cms_user` apabila
 tabel tersebut tersedia. Bila tabel tidak ada, aplikasi tidak lagi menampilkan
 database error pada halaman login.
+
+## Pertanyaan dapat dipakai ulang
+
+Versi ini menampilkan seluruh pertanyaan tersimpan pada pembuat dan pengaturan
+survei. Satu pertanyaan dapat dipakai oleh beberapa survei. Pertanyaan yang sama
+tetap tidak dapat dimasukkan dua kali ke dalam satu survei.

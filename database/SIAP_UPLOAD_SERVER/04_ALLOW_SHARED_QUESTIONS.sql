@@ -1,9 +1,5 @@
--- Kebijakan terbaru: satu pertanyaan boleh digunakan oleh beberapa survei.
---
--- Primary key (survey_id, question_id) pada ipak_survey_questions tetap
--- mencegah pertanyaan yang sama dimasukkan dua kali ke survei yang sama.
---
--- Blok ini juga aman untuk database yang pernah menjalankan migration lama.
+-- Membuka penggunaan ulang pertanyaan pada beberapa survei untuk server
+-- existing yang sebelumnya memasang unique index per question_id.
 
 SET @ipak_shared_question_index_exists = (
     SELECT COUNT(*)

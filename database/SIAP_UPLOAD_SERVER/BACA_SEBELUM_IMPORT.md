@@ -34,3 +34,9 @@ menggagalkan proses impor.
 Impor `03_CREATE_SKM_CMS_USER.sql` bila server menampilkan error bahwa tabel
 `skm_cms_user` tidak ditemukan. File tersebut membuat tabel pengguna dan akun
 superadmin awal tanpa menghapus pengguna yang sudah tersedia.
+
+## Mengizinkan pertanyaan dipakai beberapa survei
+
+Untuk server yang sudah memasang versi sebelumnya, impor
+`04_ALLOW_SHARED_QUESTIONS.sql`. Migration ini hanya melepas unique index lama
+pada `question_id`. Data survei dan pertanyaan yang sudah tersedia tidak dihapus.

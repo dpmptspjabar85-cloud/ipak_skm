@@ -72,6 +72,9 @@ CREATE TABLE IF NOT EXISTS ipak_response_answers (
     KEY idx_ipak_response_resi (resi),
     KEY idx_ipak_response_question (question_id),
     KEY idx_ipak_response_option (answer_option_id),
+    CONSTRAINT fk_ipak_response_skm
+        FOREIGN KEY (skm_data_id) REFERENCES skm_data_skm (kode)
+        ON UPDATE CASCADE ON DELETE CASCADE,
     CONSTRAINT fk_ipak_response_question
         FOREIGN KEY (question_id) REFERENCES ipak_questions (id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -86,7 +89,10 @@ CREATE TABLE IF NOT EXISTS ipak_admin_roles (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id),
-    KEY idx_ipak_admin_role (role_name)
+    KEY idx_ipak_admin_role (role_name),
+    CONSTRAINT fk_ipak_admin_role_user
+        FOREIGN KEY (user_id) REFERENCES skm_cms_user (id)
+        ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 INSERT INTO ipak_questions
@@ -284,6 +290,9 @@ CREATE TABLE IF NOT EXISTS ipak_submission_surveys (
     UNIQUE KEY uq_ipak_submission_survey (skm_data_id, survey_id),
     KEY idx_ipak_result_survey_score (survey_id, score),
     KEY idx_ipak_result_form (form_id),
+    CONSTRAINT fk_ipak_result_skm
+        FOREIGN KEY (skm_data_id) REFERENCES skm_data_skm (kode)
+        ON UPDATE CASCADE ON DELETE CASCADE,
     CONSTRAINT fk_ipak_result_form
         FOREIGN KEY (form_id) REFERENCES ipak_forms (id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -469,11 +478,14 @@ INNER JOIN ipak_questions q ON q.id = ra.question_id;
 -- MIGRATION: 004_unique_question_per_survey.sql
 -- ============================================================
 
--- Satu pertanyaan hanya boleh dimiliki oleh satu survei.
--- Form gabungan tetap dapat memuat beberapa survei, tetapi kumpulan
--- pertanyaan antar-survei tidak boleh saling tumpang tindih.
+-- Kebijakan terbaru: satu pertanyaan boleh digunakan oleh beberapa survei.
+--
+-- Primary key (survey_id, question_id) pada ipak_survey_questions tetap
+-- mencegah pertanyaan yang sama dimasukkan dua kali ke survei yang sama.
+--
+-- Blok ini juga aman untuk database yang pernah menjalankan migration lama.
 
-SET @ipak_unique_question_index_exists = (
+SET @ipak_shared_question_index_exists = (
     SELECT COUNT(*)
     FROM information_schema.statistics
     WHERE table_schema = DATABASE()
@@ -481,15 +493,15 @@ SET @ipak_unique_question_index_exists = (
       AND index_name = 'uq_ipak_question_single_survey'
 );
 
-SET @ipak_unique_question_sql = IF(
-    @ipak_unique_question_index_exists = 0,
-    'ALTER TABLE ipak_survey_questions ADD UNIQUE KEY uq_ipak_question_single_survey (question_id)',
+SET @ipak_shared_question_sql = IF(
+    @ipak_shared_question_index_exists > 0,
+    'ALTER TABLE ipak_survey_questions DROP INDEX uq_ipak_question_single_survey',
     'SELECT 1'
 );
 
-PREPARE ipak_unique_question_statement FROM @ipak_unique_question_sql;
-EXECUTE ipak_unique_question_statement;
-DEALLOCATE PREPARE ipak_unique_question_statement;
+PREPARE ipak_shared_question_statement FROM @ipak_shared_question_sql;
+EXECUTE ipak_shared_question_statement;
+DEALLOCATE PREPARE ipak_shared_question_statement;
 
 -- ============================================================
 -- MIGRATION: 005_standalone_survey_shortcuts.sql
@@ -773,7 +785,10 @@ CREATE TABLE IF NOT EXISTS ipak_response_fields (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uq_ipak_response_field (skm_data_id, field_key),
-    KEY idx_ipak_response_field_key (field_key)
+    KEY idx_ipak_response_field_key (field_key),
+    CONSTRAINT fk_ipak_response_field_submission
+        FOREIGN KEY (skm_data_id) REFERENCES skm_data_skm (kode)
+        ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 -- ============================================================
@@ -1562,3 +1577,28 @@ SET @ipak_drop_legacy_fk_sql = IF(
 PREPARE ipak_drop_legacy_fk_statement FROM @ipak_drop_legacy_fk_sql;
 EXECUTE ipak_drop_legacy_fk_statement;
 DEALLOCATE PREPARE ipak_drop_legacy_fk_statement;
+
+-- ============================================================
+-- MIGRATION: 016_allow_shared_questions_across_surveys.sql
+-- ============================================================
+
+-- Membuka penggunaan ulang pertanyaan pada beberapa survei untuk server
+-- existing yang sebelumnya memasang unique index per question_id.
+
+SET @ipak_shared_question_index_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'ipak_survey_questions'
+      AND index_name = 'uq_ipak_question_single_survey'
+);
+
+SET @ipak_shared_question_sql = IF(
+    @ipak_shared_question_index_exists > 0,
+    'ALTER TABLE ipak_survey_questions DROP INDEX uq_ipak_question_single_survey',
+    'SELECT 1'
+);
+
+PREPARE ipak_shared_question_statement FROM @ipak_shared_question_sql;
+EXECUTE ipak_shared_question_statement;
+DEALLOCATE PREPARE ipak_shared_question_statement;

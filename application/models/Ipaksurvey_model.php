@@ -1031,34 +1031,28 @@ class Ipaksurvey_model extends CI_Model
             ->result_array();
         $result = [];
         foreach ($rows as $row) {
-            $result[(int) $row['question_id']] = [
-                'survey_id' => (int) $row['survey_id'],
-                'survey_code' => $row['survey_code'],
-                'survey_name' => $row['survey_name'],
-            ];
+            $questionId = (int) $row['question_id'];
+            if (!isset($result[$questionId])) {
+                $result[$questionId] = [
+                    'survey_id' => (int) $row['survey_id'],
+                    'survey_code' => $row['survey_code'],
+                    'survey_name' => $row['survey_name'],
+                    'survey_ids' => [],
+                    'survey_names' => [],
+                ];
+            }
+            $result[$questionId]['survey_ids'][] = (int) $row['survey_id'];
+            $result[$questionId]['survey_names'][] = $row['survey_name'];
+            $result[$questionId]['survey_name'] = implode(', ', $result[$questionId]['survey_names']);
         }
         return $result;
     }
 
     public function question_assignment_conflicts(array $questionIds, $excludeSurveyId = 0)
     {
-        $questionIds = array_values(array_filter(array_unique(array_map('intval', $questionIds))));
-        if (!$questionIds) {
-            return [];
-        }
-        $this->db
-            ->select('sq.question_id,q.question_code,s.id AS survey_id,s.survey_code,s.survey_name')
-            ->from('ipak_survey_questions sq')
-            ->join('ipak_questions q', 'q.id = sq.question_id', 'inner')
-            ->join('ipak_surveys s', 's.id = sq.survey_id', 'inner')
-            ->where_in('sq.question_id', $questionIds);
-        if ((int) $excludeSurveyId > 0) {
-            $this->db->where('sq.survey_id !=', (int) $excludeSurveyId);
-        }
-        return $this->db
-            ->order_by('q.question_code', 'ASC')
-            ->get()
-            ->result_array();
+        // Pertanyaan boleh digunakan kembali oleh beberapa survei.
+        // Method dipertahankan agar pemanggil lama tetap kompatibel.
+        return [];
     }
 
     public function get_form_survey_ids($formId)
@@ -1321,9 +1315,6 @@ class Ipaksurvey_model extends CI_Model
             return false;
         }
         $surveyId = isset($survey['id']) ? (int) $survey['id'] : 0;
-        if ($this->question_assignment_conflicts($questionIds, $surveyId)) {
-            return false;
-        }
         $existingSurvey = [];
         if ($surveyId > 0) {
             $existingSurvey = $this->db
