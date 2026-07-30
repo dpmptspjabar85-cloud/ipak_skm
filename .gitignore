@@ -1,0 +1,29 @@
+# Konfigurasi lokal/deployment
+.env
+.env.*
+!.env.example
+
+# Session, cache, dan log CodeIgniter
+application/cache/*
+!application/cache/index.html
+application/logs/*
+!application/logs/index.html
+
+# Log server lokal
+*.log
+
+# File sementara dan hasil pengujian
+tmp/
+database/_test_*.sql
+
+# Editor dan sistem operasi
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Dependencies hasil instalasi
+vendor/
+
+# Cache hasil kompilasi stylesheet
+.sass-cache/

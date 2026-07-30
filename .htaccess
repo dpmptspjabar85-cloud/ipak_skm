@@ -1,0 +1,21 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# === Redirect Survei.php tanpa query ke folder /jelita/perizinan/skm/ ===
+RewriteCond %{THE_REQUEST} \s/+jelita/perizinan/skm/Survei\.php[\s?] [NC]
+RewriteCond %{QUERY_STRING} ^$
+RewriteRule ^Survei\.php$ /jelita/perizinan/skm/survey/add [R=301,L]
+
+# === Redirect Survei.php?qry=add ke survei/question dengan CODE=frontoffice ===
+RewriteCond %{THE_REQUEST} \s/+jelita/perizinan/skm/Survei\.php [NC]
+RewriteCond %{QUERY_STRING} (^|&)qry=add(&|$) [NC]
+RewriteCond %{QUERY_STRING} (?:^|&)url=([^&]+) [NC]
+RewriteRule ^Survei\.php$ /jelita/perizinan/skm/survey/question?CODE=frontoffice&url=%1 [R=301,L,NE]
+
+# === Rule default CodeIgniter ===
+RewriteCond $1 !^(index\.php|resources|robots\.txt)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?/$1 [L,QSA]
+
+</IfModule>
