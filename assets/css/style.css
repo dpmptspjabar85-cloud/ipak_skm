@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* =======================================================================
 Template Name: Dil Hospital
 Author:  SmartEye Adminpanel
@@ -736,4 +737,744 @@ body {
   }
 }
 
+=======
+/* =======================================================================
+Template Name: Dil Hospital
+Author:  SmartEye Adminpanel
+Author URI: www.smarteyeapps.com
+Version: 1.0
+coder name:Prabin Raja
+Description: This Template is created for web template
+======================================================================= */
+/* ===================================== Import Less ================================== */
+@font-face {
+  font-family: 'mouse-300';
+  src: url("../fonts/RobotoSlab-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: 'mouse-500';
+  src: url("../fonts/RobotoSlab-Bold.ttf") format("truetype");
+}
+
+/* ===================================== Basic CSS ================================== */
+.site-header { position: relative; z-index: 1000; }
+
+/* Header kontainer jadi anchor positioning */
+.site-header, header {
+  position: relative;
+  z-index: 1000;
+}
+
+/* pastikan header di atas */
+header, .site-header { position: relative; z-index: 1000; }
+
+/* NAV jadi overlay fullscreen tersembunyi dulu */
+#main-nav {
+  position: fixed !important;
+  inset: 0 !important;                   /* top:0; right:0; bottom:0; left:0 */
+  z-index: 10000 !important;
+  display: block;                         /* selalu block, yang sembunyikan animasi */
+  pointer-events: none;                   /* nonaktif saat tertutup */
+  opacity: 0;                             /* tertutup */
+  transform: scale(1.02);                 /* sedikit zoom out saat hidden */
+  transition: opacity .22s ease, transform .22s ease;
+  background: rgba(0,0,0,.45);            /* backdrop */
+}
+
+/* panel di dalam yang berisi menu */
+#main-nav .cd-primary-nav {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  padding: 24px !important;
+  list-style: none !important;
+
+  background: #ffffff !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+
+  display: flex !important;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+
+  /* mulai dari kanan (off-canvas) lalu geser masuk */
+  transform: translateX(100%);
+  transition: transform .28s ease;
+}
+
+/* saat open: aktifkan interaksi, tampilkan, geser panel masuk */
+.nav-open #main-nav {
+  pointer-events: auto;
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* panel masuk */
+.nav-open #main-nav .cd-primary-nav {
+  transform: translateX(0);
+}
+
+/* item menu */
+#main-nav .cd-primary-nav a {
+  display: block;
+  padding: 14px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #111;
+}
+#main-nav .cd-primary-nav a:hover { background: #f2f3f5; }
+
+/* tombol trigger selalu bisa diklik */
+.cd-nav-trigger {
+  position: relative; z-index: 10001;
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .5rem .75rem; cursor: pointer;
+}
+
+/* lock scroll saat open (tambahkan class lewat JS) */
+html.nav-locked, body.nav-locked { overflow: hidden !important; }
+#main-nav .cd-primary-nav {
+  justify-content: center; align-items: center; text-align: center;
+  transform: none; /* hilangkan gerak slide */
+}
+.nav-open #main-nav .cd-primary-nav { transform: none; }
+#main-nav .cd-primary-nav li { font-size: 20px; }
+
+/* Overlay full-screen */
+#main-nav{
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  background: rgba(0,0,0,.45) !important;
+  opacity: 0;
+  pointer-events: none;               /* default mati */
+  transition: opacity .22s ease;
+}
+
+/* Panel off-canvas yang masuk dari kanan */
+#main-nav .nav-panel{
+  position: fixed !important;
+  top: 0; right: 0; height: 100vh; width: min(92vw, 340px);
+  background: #fff;
+  box-shadow: -14px 0 40px rgba(0,0,0,.18);
+  transform: translateX(110%);        /* start di luar layar */
+  transition: transform .28s ease;
+  display: flex; flex-direction: column;
+  padding: 20px;
+  z-index: 10001;
+}
+
+/* Tombol tutup */
+#main-nav .nav-close{
+  align-self: flex-end;
+  font-size: 28px; line-height: 1;
+  background: transparent; border: 0; cursor: pointer;
+  margin: -6px -6px 10px 0;
+}
+
+/* Daftar menu */
+#main-nav .nav-menu{ list-style: none; margin: 0; padding: 0; }
+#main-nav .nav-menu li + li{ margin-top: 8px; }
+#main-nav .nav-menu a{
+  display: block; padding: 12px 10px; border-radius: 10px; text-decoration: none;
+  color: #111;
+}
+#main-nav .nav-menu a:hover{ background: #f2f3f5; }
+
+/* State OPEN */
+.nav-open #main-nav{ opacity: 1; pointer-events: auto; }
+.nav-open #main-nav .nav-panel{ transform: translateX(0); }
+
+/* Kunci scroll saat open */
+html.nav-locked, body.nav-locked{ overflow: hidden !important; }
+
+/* Pastikan trigger selalu bisa diklik */
+.cd-nav-trigger{ position: relative; z-index: 10002; }
+
+/* Link */
+#main-nav .cd-primary-nav a{
+  display:block; padding:14px 12px; border-radius:12px; text-decoration:none; color:inherit;
+}
+#main-nav .cd-primary-nav a:hover{ background:#f2f3f5; }
+
+/* Kunci scroll saat open */
+html.nav-locked, body.nav-locked{ overflow: hidden !important; }
+
+/* Trigger selalu di atas */
+.cd-nav-trigger{ position: relative; z-index: 10002; }
+
+img {
+  max-width: 100%;
+}
+
+a {
+  text-decoration: none;
+  outline: none;
+  color: #444;
+}
+
+a:hover {
+  color: #444;
+}
+
+ul {
+  margin-bottom: 0;
+  padding-left: 0;
+}
+
+a:hover,
+a:focus,
+input,
+textarea {
+  text-decoration: none;
+  outline: none;
+}
+
+.center {
+  text-align: center;
+}
+
+.left {
+  text-align: left;
+}
+
+.right {
+  text-align: right;
+}
+
+.cp {
+  cursor: pointer;
+}
+
+html,
+body {
+  height: 100%;
+  background-image: url(../images/FO5.png);
+}
+
+p {
+  margin-bottom: 0px;
+  width: 100%;
+}
+
+.no-padding {
+  padding: 0px;
+}
+
+.no-margin {
+  margin: 0px;
+}
+
+.hid {
+  display: none;
+}
+
+.top-mar {
+  margin-top: 15px;
+}
+
+.h-100 {
+  height: 100%;
+}
+
+::placeholder {
+  color: #747f8a !important;
+  font-size: 13px;
+  opacity: .5 !important;
+}
+
+.container-fluid {
+  padding: 0px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "mouse-500", Arial, Helvetica, sans-serif;
+}
+
+strong {
+  font-family: "mouse-500", Arial, Helvetica, sans-serif;
+}
+
+body {
+  background-color: #f7f7ff !important;
+  font-family: "mouse-300", Arial, Helvetica, sans-serif;
+  color: #6A6A6A;
+}
+
+.custom-select {
+  background-color: #F8F8F8;
+  border-left: 0px;
+  border-radius: 0px;
+  border-bottom-right-radius: 50px;
+  border-top-right-radius: 50px;
+}
+
+.custom-select:focus {
+  box-shadow: none;
+  border: 2px solid #347A49 !important;
+}
+
+.form {
+  margin-bottom: 30px;
+}
+
+.log-det .text-box-cont .input-group textarea {
+  border-left: 0px;
+  border-radius: 0px;
+  border-bottom-right-radius: 50px;
+  border-top-right-radius: 50px;
+}
+
+.input-group .g-recaptcha {
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 25px;
+}
+
+.session-title {
+  padding: 30px;
+  margin: 0px;
+}
+
+.session-title h2 {
+  width: 100%;
+  text-align: center;
+}
+
+.session-title p {
+  max-width: 850px;
+  text-align: center;
+  float: none;
+  margin: auto;
+}
+
+.session-title span {
+  float: right;
+  font-style: italic;
+}
+
+.inner-title {
+  padding: 20px;
+  padding-left: 0px;
+  margin-bottom: 30px;
+}
+
+.inner-title h2 {
+  width: 100%;
+  text-align: center;
+  font-size: 2rem;
+  font-family: "slab", Arial, Helvetica, sans-serif;
+}
+
+.inner-title p {
+  width: 100%;
+  text-align: center;
+}
+
+.page-nav {
+  padding: 40px;
+  text-align: center;
+  padding-top: 160px;
+}
+
+.page-nav ul {
+  float: none;
+  margin: auto;
+}
+
+.page-nav h2 {
+  font-size: 36px;
+  width: 100%;
+  color: #444;
+}
+
+@media screen and (max-width: 600px) {
+  .page-nav h2 {
+    font-size: 26px;
+  }
+}
+
+.page-nav ul li {
+  float: left;
+  margin-right: 10px;
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.page-nav ul li i {
+  width: 30px;
+  text-align: center;
+  color: #444;
+}
+
+.page-nav ul li a {
+  color: #444;
+}
+
+.btn-success {
+  background-color: #00ab9f;
+  border-color: #00ab9f;
+}
+
+.btn-success:hover {
+  background-color: #00ab9f !important;
+  border-color: #00ab9f !important;
+}
+
+.btn-success:active {
+  background-color: #00ab9f !important;
+  border-color: #00ab9f !important;
+}
+
+.btn-success:focus {
+  background-color: #00ab9f !important;
+  border-color: #00ab9f !important;
+  box-shadow: none !important;
+}
+
+.btn-info {
+  background-color: #4f6dcd;
+  border-color: #4f6dcd;
+}
+
+.btn-info:hover {
+  background-color: #4f6dcd !important;
+  border-color: #4f6dcd !important;
+}
+
+.btn-info:active {
+  background-color: #4f6dcd !important;
+  border-color: #4f6dcd !important;
+}
+
+.btn-info:focus {
+  background-color: #4f6dcd !important;
+  border-color: #4f6dcd !important;
+  box-shadow: none !important;
+}
+
+.btn {
+  box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+}
+
+.btn-primary {
+  background-color: #1364A1;
+  border-color: #1364A1;
+}
+
+.form-control:focus {
+  box-shadow: none !important;
+  border: 2px solid #00a8df;
+}
+
+.btn-light {
+  background-color: #FFF;
+  color: #3F3F3F;
+}
+
+.collapse.show {
+  display: block !important;
+}
+
+.form-control:focus {
+  box-shadow: none;
+  border: 2px solid #347A49 !important;
+}
+
+.form-control {
+  background-color: #F8F8F8;
+  margin-bottom: 20px;
+}
+
+.form-control:focus {
+  background-color: #FFF;
+  border-color: #CCC;
+}
+
+.container {
+  max-width: 1100px;
+  margin-top: -20px;
+}
+
+
+/* ===================================== Header CSS ================================== */
+@media screen and (max-width: 991px) {
+  .cdvfdfd {
+    padding: 15px;
+  }
+}
+
+.login-box {
+  /* background-image: url(../images/texture.jpg); */
+  background-image: url(../images/FO5.png);
+  /*background-color: #FFF;*/
+  background-size: cover;
+  background-repeat: no-repeat;
+  float: none;
+  margin: auto;
+  border-radius: 25px !important;
+  -webkit-box-shadow: 0px 0px 72px -10px rgba(0, 0, 0, 0.44);
+  -moz-box-shadow: 0px 0px 72px -10px rgba(0, 0, 0, 0.44);
+  box-shadow: 0px 0px 72px -10px rgba(0, 0, 0, 0.44);
+  border-radius: 5px;
+  margin-top: 6%;
+}
+
+@media screen and (max-width: 575px) {
+  .login-box {
+    margin-top: 0px;
+  }
+}
+
+@media screen and (max-width: 1096px) {
+  .login-box {
+    margin-bottom: 40px;
+    margin-top: 40px;
+  }
+}
+
+.log-det {
+  padding: 40px;
+  margin-top: -20px;
+}
+
+.log-det .small-logo {
+  text-align: center;
+  align-items: center;
+  color: #1364A1;
+  font-size: 1.5rem;
+  /*border-bottom: 1px solid #cccccc73;*/
+  padding-bottom: 10px;
+  margin-bottom: 5px;
+}
+
+.log-det .small-logo img {
+  max-width: 40%;
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.log-det .small-logo i {
+  font-size: 32px;
+  margin-right: 10px;
+}
+
+.log-det .dfmn {
+  margin-top: 15px;
+  font-size: .9rem;
+}
+
+.log-det h2 {
+  margin-top: 20px;
+  width: 100%;
+  text-align: center;
+  font-size: 1.3rem;
+  margin-bottom: 40px;
+}
+
+.log-det ul {
+  float: none;
+  margin: auto;
+  width: 200px;
+}
+
+.log-det ul a {
+  float: left;
+  padding: 10px;
+}
+
+.log-det ul a i {
+  padding: 10px;
+  border: 1px solid #CCC;
+  width: 40px;
+  height: 40px;
+  text-align: center;
+  border-radius: 50px;
+}
+
+.log-det ul a i:hover {
+  background-color: rgba(19, 100, 161, 0.2);
+}
+
+.log-det p {
+  width: 100%;
+  /* text-align: center; */
+  margin-bottom: 20px;
+  margin-top: 10px;
+}
+
+.log-det .small-info {
+  font-size: 1rem;
+  border-top: 2px solid #cccccc73;
+  padding-top: 20px;
+  margin-bottom: 5px;
+}
+
+.log-det .btn {
+  width: 60%;
+}
+
+.log-det .text-box-cont {
+  /*max-width: 300px;*/
+  float: none;
+  margin: auto;
+}
+
+.log-det .text-box-cont .input-group .input-group-prepend span {
+  background-color: #F8F8F8;
+  border-radius: 0px;
+  border-right: 0px;
+  border-bottom-left-radius: 50px;
+  border-top-left-radius: 50px;
+}
+
+.log-det .text-box-cont .input-group .input-group-prepend i {
+  color: #777474;
+  font-size: 14px;
+}
+
+.log-det .text-box-cont .input-group input {
+  border-left: 0px;
+  border-radius: 0px;
+  border-bottom-right-radius: 50px;
+  border-top-right-radius: 50px;
+}
+
+.log-det .text-box-cont .btn {
+  border-radius: 50px;
+  padding: 10px 30px;
+  margin: auto;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.log-det .forget-p {
+  margin-top: 10px;
+  font-size: .9rem;
+}
+
+.log-det .forget-p span {
+  color: #c82333;
+  font-weight: 600;
+  margin-left: 5px;
+}
+
+.box-de {
+  background-image: url(../images/pantas.png);
+  /* height: 100vh; */
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  padding: 0px;
+  border-top-right-radius: 25px;
+  border-bottom-right-radius: 25px;
+}
+
+.box-de .inn-cover {
+  display: flex;
+  background-color: rgba(19, 100, 161, 0.2);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-top-right-radius: 25px;
+  border-bottom-right-radius: 25px;
+  padding: 30px;
+}
+
+@media screen and (max-width: 767px) {
+  .box-de .inn-cover {
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 25px;
+    position: relative;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  .box-de {
+    border-bottom-left-radius: 25px;
+  }
+}
+
+.box-de .ditk-inf {
+  margin: auto;
+  align-items: center;
+  text-align: center;
+  color: #FFF;
+}
+
+.box-de .ditk-inf .small-logo {
+  position: relative;
+  top: 0px;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+}
+
+.box-de .ditk-inf .small-logo i {
+  font-size: 44px;
+}
+
+.box-de .ditk-inf p {
+  margin-top: 15px;
+  font-size: .9rem;
+}
+
+.box-de .ditk-inf .btn-outline-light {
+  border-radius: 50px;
+  box-shadow: none;
+  padding: 5px 20px;
+  margin-top: 25px;
+}
+
+.box-de .small-logo {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: #FFF;
+}
+
+.box-de .small-logo i {
+  font-size: 22px;
+  margin-right: 5px;
+}
+
+.box-de .foter-credit {
+  position: absolute;
+  bottom: 10px;
+  right: 6%;
+  font-size: 14px;
+  padding: 10px;
+  color: #FFF;
+  font-weight: 300;
+}
+
+.box-de .foter-credit a {
+  color: #777474;
+}
+
+@media screen and (max-width: 767px) {
+  .box-de .foter-credit {
+    display: none;
+  }
+}
+
+.sup {
+  margin-top: 40px;
+}
+
+@media screen and (max-width: 767px) {
+  .sup-oi {
+    margin-top: 40px !important;
+  }
+}
+
+>>>>>>> 563b877ee5432943018f22402774054db6dabfa4
 /*# sourceMappingURL=style.css.map */

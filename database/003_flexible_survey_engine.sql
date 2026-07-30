@@ -90,9 +90,12 @@ CREATE TABLE IF NOT EXISTS ipak_submission_surveys (
     UNIQUE KEY uq_ipak_submission_survey (skm_data_id, survey_id),
     KEY idx_ipak_result_survey_score (survey_id, score),
     KEY idx_ipak_result_form (form_id),
+<<<<<<< HEAD
     CONSTRAINT fk_ipak_result_skm
         FOREIGN KEY (skm_data_id) REFERENCES skm_data_skm (kode)
         ON UPDATE CASCADE ON DELETE CASCADE,
+=======
+>>>>>>> 563b877ee5432943018f22402774054db6dabfa4
     CONSTRAINT fk_ipak_result_form
         FOREIGN KEY (form_id) REFERENCES ipak_forms (id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
