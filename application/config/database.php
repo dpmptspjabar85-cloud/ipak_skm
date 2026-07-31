@@ -75,10 +75,10 @@ $query_builder = TRUE;
 
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => 'db',
-	'username' => 'root',
-	'password' => 'rootpass',//'develop3Rptsp',//'db@mysql#BPMPT',
-	'database' => 'backoffice',
+	'hostname' => getenv('IPAK_DB_HOST') !== false ? getenv('IPAK_DB_HOST') : 'localhost',
+	'username' => getenv('IPAK_DB_USER') !== false ? getenv('IPAK_DB_USER') : 'root',
+	'password' => getenv('IPAK_DB_PASSWORD') !== false ? getenv('IPAK_DB_PASSWORD') : '',
+	'database' => getenv('IPAK_DB_NAME') !== false ? getenv('IPAK_DB_NAME') : 'backoffice',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,
