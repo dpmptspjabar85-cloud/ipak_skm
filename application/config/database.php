@@ -75,10 +75,11 @@ $query_builder = TRUE;
 
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => getenv('IPAK_DB_HOST') !== false ? getenv('IPAK_DB_HOST') : 'localhost',
+	'hostname' => getenv('IPAK_DB_HOST') !== false ? getenv('IPAK_DB_HOST') : '127.0.0.1',
 	'username' => getenv('IPAK_DB_USER') !== false ? getenv('IPAK_DB_USER') : 'root',
 	'password' => getenv('IPAK_DB_PASSWORD') !== false ? getenv('IPAK_DB_PASSWORD') : '',
 	'database' => getenv('IPAK_DB_NAME') !== false ? getenv('IPAK_DB_NAME') : 'backoffice',
+	'port' => getenv('IPAK_DB_PORT') !== false ? getenv('IPAK_DB_PORT') : '3306',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,
