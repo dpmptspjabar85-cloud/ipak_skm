@@ -225,9 +225,11 @@ $formGroups = [
             <strong><?= html_escape($form['form_name']) ?></strong>
             <small><?= $formGroup['kind'] === 'primary' ? 'Form utama · 1 survei' : 'Paket gabungan · ' . (int) $form['survey_count'] . ' survei' ?> · <?= !empty($form['requires_resi']) ? 'wajib resi SKM' : 'tanpa resi' ?></small>
           </span>
-          <span class="question-editor-meta"><?= (int) $form['is_default'] === 1 ? 'Form bawaan' : 'Form alternatif' ?></span>
-          <span class="badge"><?= (int) $form['is_active'] === 1 ? 'Aktif' : 'Nonaktif' ?></span>
-          <span class="badge"><?= !empty($form['is_public_listed']) ? 'Tampil di front office' : 'Disembunyikan dari front office' ?></span>
+          <span class="question-editor-statuses">
+            <span class="question-editor-meta"><?= (int) $form['is_default'] === 1 ? 'Form bawaan' : 'Form alternatif' ?></span>
+            <span class="badge <?= (int) $form['is_active'] === 1 ? 'form-badge-active' : 'form-badge-muted' ?>"><?= (int) $form['is_active'] === 1 ? 'Aktif' : 'Nonaktif' ?></span>
+            <span class="badge <?= !empty($form['is_public_listed']) ? 'form-badge-public' : 'form-badge-hidden' ?>"><?= !empty($form['is_public_listed']) ? 'Tampil di front office' : 'Disembunyikan' ?></span>
+          </span>
         </summary>
         <div class="question-editor-body">
           <?php if (!empty($form['requires_resi'])): ?>
@@ -252,18 +254,24 @@ $formGroups = [
                 <span>Bagian 1</span>
                 <div><h3>Informasi form</h3><p>Nama dan kode untuk membedakan form.</p></div>
               </div>
-              <div class="question-config-grid">
+              <div class="question-config-grid form-info-grid">
                 <div class="field"><label>Kode form</label><input name="form_code" maxlength="30" value="<?= html_escape($form['form_code']) ?>" required><small class="field-help"><b>Petunjuk:</b> Digunakan pada URL <code>?form=KODE</code>, tanpa spasi.</small></div>
                 <div class="field"><label>Nama form</label><input name="form_name" maxlength="150" value="<?= html_escape($form['form_name']) ?>" required><small class="field-help"><b>Petunjuk:</b> Nama yang dilihat responden.</small></div>
-                <label class="question-active-check"><input type="checkbox" name="is_default" value="1" <?= (int) $form['is_default'] === 1 ? 'checked' : '' ?>> Jadikan form bawaan</label>
-                <label class="question-active-check"><input type="checkbox" name="is_active" value="1" <?= (int) $form['is_active'] === 1 ? 'checked' : '' ?>> Form aktif</label>
-                <input type="hidden" name="is_public_listed" value="0">
-                <label class="question-active-check">
-                  <input type="checkbox" name="is_public_listed" value="1" <?= !empty($form['is_public_listed']) ? 'checked' : '' ?>>
-                  Tampilkan pada pilihan formulir di front office
-                  <small class="field-help">Jika dimatikan, form tidak muncul di dashboard dan katalog publik, tetapi URL shortcut tetap dapat digunakan.</small>
-                </label>
                 <div class="field full"><label>Deskripsi</label><textarea name="description" maxlength="2000"><?= html_escape($form['description']) ?></textarea><small class="field-help"><b>Petunjuk:</b> Jelaskan tujuan form kepada pengelola.</small></div>
+              </div>
+              <div class="form-toggle-grid" aria-label="Status dan visibilitas form">
+                <label class="form-toggle-card">
+                  <input type="checkbox" name="is_default" value="1" <?= (int) $form['is_default'] === 1 ? 'checked' : '' ?>>
+                  <span><strong>Form bawaan</strong><small>Dibuka jika URL tidak membawa kode form.</small></span>
+                </label>
+                <label class="form-toggle-card">
+                  <input type="checkbox" name="is_active" value="1" <?= (int) $form['is_active'] === 1 ? 'checked' : '' ?>>
+                  <span><strong>Form aktif</strong><small>Jika dimatikan, form tidak dapat menerima pengisian.</small></span>
+                </label>
+                <label class="form-toggle-card">
+                  <input type="checkbox" name="is_public_listed" value="1" <?= !empty($form['is_public_listed']) ? 'checked' : '' ?>>
+                  <span><strong>Tampilkan di front office</strong><small>Jika dimatikan, form hanya tersedia melalui URL shortcut resmi.</small></span>
+                </label>
               </div>
 
               <div class="form-section-heading">

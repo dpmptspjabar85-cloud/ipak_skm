@@ -5,6 +5,7 @@ $oldInitialCustom = isset($old['initial_custom']) && is_array($old['initial_cust
 $oldIdentityCustom = isset($old['identity_custom']) && is_array($old['identity_custom']) ? $old['identity_custom'] : [];
 $oldQuestions = isset($old['new_questions']) && is_array($old['new_questions']) ? $old['new_questions'] : [[]];
 $oldQuestionIds = isset($old['question_ids']) && is_array($old['question_ids']) ? array_map('intval', $old['question_ids']) : [];
+$oldPublicListed = $old ? !empty($old['is_public_listed']) : true;
 $oldValue = function ($key, $fallback = '') use ($old) {
     return isset($old[$key]) ? $old[$key] : $fallback;
 };
@@ -168,9 +169,8 @@ $oldValue = function ($key, $fallback = '') use ($old) {
       <div class="field"><label>Kode survei <span class="required-mark">*</span></label><input name="survey_code" maxlength="30" required value="<?= html_escape($oldValue('survey_code')) ?>" placeholder="PELAYANAN"><small class="field-help">Kode harus berbeda dari survei yang sudah ada.</small></div>
       <div class="field"><label>Label nilai <span class="required-mark">*</span></label><input name="index_label" maxlength="60" required value="<?= html_escape($oldValue('index_label', 'Nilai Survei')) ?>" placeholder="Nilai Survei"></div>
       <div class="field"><label>Warna grafik</label><input name="color" type="color" value="<?= html_escape($oldValue('color', '#8b5cf6')) ?>"></div>
-      <input type="hidden" name="is_public_listed" value="0">
-      <label class="builder-choice">
-        <input type="checkbox" name="is_public_listed" value="1" <?= (int) $oldValue('is_public_listed', 1) === 1 ? 'checked' : '' ?>>
+      <label class="form-toggle-card builder-visibility-card">
+        <input type="checkbox" name="is_public_listed" value="1" <?= $oldPublicListed ? 'checked' : '' ?>>
         <span>
           <b>Tampilkan di front office</b>
           <small>Jika dimatikan, formulir hanya dapat dibuka melalui URL shortcut resmi.</small>
