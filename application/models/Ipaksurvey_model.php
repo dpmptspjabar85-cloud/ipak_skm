@@ -2512,6 +2512,9 @@ class Ipaksurvey_model extends CI_Model
         if (!$ids) {
             return [];
         }
+        if (!$this->db->table_exists('trunitkerja')) {
+            return [];
+        }
         $unitRows = $this->db
             ->select('id,n_unitkerja')
             ->where_in('id', array_values($ids))
@@ -2615,6 +2618,9 @@ class Ipaksurvey_model extends CI_Model
 
     public function default_regular_unit()
     {
+        if (!$this->db->table_exists('trunitkerja')) {
+            return [];
+        }
         $row = $this->db
             ->select('id,n_unitkerja')
             ->where(
@@ -2633,6 +2639,10 @@ class Ipaksurvey_model extends CI_Model
 
     public function get_units($visibleOnly = false)
     {
+        if (!$this->db->table_exists('trunitkerja')) {
+            return [];
+        }
+
         $this->db
             ->select('u.id,u.n_unitkerja,u.nm_cap,COUNT(p.id) AS service_count', false)
             ->from('trunitkerja u')
@@ -2667,6 +2677,10 @@ class Ipaksurvey_model extends CI_Model
 
     public function unit_name_exists($unitName, $excludeId = 0)
     {
+        if (!$this->db->table_exists('trunitkerja')) {
+            return false;
+        }
+
         $this->db->where('n_unitkerja', trim((string) $unitName));
         if ((int) $excludeId > 0) {
             $this->db->where('id !=', (int) $excludeId);
@@ -2676,6 +2690,9 @@ class Ipaksurvey_model extends CI_Model
 
     public function create_unit($unitName)
     {
+        if (!$this->db->table_exists('trunitkerja')) {
+            return false;
+        }
         return $this->db->insert('trunitkerja', [
             'n_unitkerja' => trim((string) $unitName),
             'nm_cap' => '',
@@ -2684,6 +2701,9 @@ class Ipaksurvey_model extends CI_Model
 
     public function set_unit_visibility($unitId, $isVisible)
     {
+        if (!$this->db->table_exists('trunitkerja')) {
+            return false;
+        }
         $row = $this->db
             ->select('id,nm_cap')
             ->where('id', (int) $unitId)
