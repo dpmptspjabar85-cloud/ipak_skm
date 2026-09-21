@@ -2883,7 +2883,7 @@ class Ipaksurvey_model extends CI_Model
                 }
 
                 $existingIndexes = $this->get_table_indexes($tableName);
-                $requiredIndexes = $tableDef['indexes'] ?? [];
+                $requiredIndexes = isset($tableDef['indexes']) ? $tableDef['indexes'] : [];
 
                 foreach ($requiredIndexes as $idxName => $idxDef) {
                     $idxColumns = implode(',', $idxDef['columns']);
@@ -2909,7 +2909,7 @@ class Ipaksurvey_model extends CI_Model
                 }
 
                 $existingFks = $this->get_table_foreign_keys($tableName);
-                $requiredFks = $tableDef['foreign_keys'] ?? [];
+                $requiredFks = isset($tableDef['foreign_keys']) ? $tableDef['foreign_keys'] : [];
 
                 foreach ($requiredFks as $fkName => $fkDef) {
                     $fkExists = isset($existingFks[$fkName]);
@@ -3035,9 +3035,9 @@ class Ipaksurvey_model extends CI_Model
         }
         $cols = array_merge($cols, $foreignKeys);
 
-        $engine = $tableDef['engine'] ?? 'InnoDB';
-        $charset = $tableDef['charset'] ?? 'utf8';
-        $collate = $tableDef['collate'] ?? 'utf8_general_ci';
+        $engine = isset($tableDef['engine']) ? $tableDef['engine'] : 'InnoDB';
+        $charset = isset($tableDef['charset']) ? $tableDef['charset'] : 'utf8';
+        $collate = isset($tableDef['collate']) ? $tableDef['collate'] : 'utf8_general_ci';
 
         return "CREATE TABLE IF NOT EXISTS `{$tableName}` (\n    " . implode(",\n    ", $cols) . "\n) ENGINE={$engine} DEFAULT CHARSET={$charset} COLLATE={$collate};";
     }
