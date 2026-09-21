@@ -36,3 +36,4 @@ $route['admin/api-builder/regenerate/(:num)']['post'] = 'admin/api_client_regene
 $route['admin/api-builder/documentation/(:num)'] = 'admin/api_client_documentation/$1';
 $route['admin/units'] = 'admin/units';
 $route['admin/help'] = 'admin/help';
+$route['admin/sync-database'] = 'admin/sync_database';

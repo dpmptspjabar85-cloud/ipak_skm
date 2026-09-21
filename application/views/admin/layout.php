@@ -29,9 +29,10 @@
       <a class="<?= $section === 'questions' ? 'active' : '' ?>" href="<?= site_url('admin/questions') ?>"><span>?</span> Pertanyaan & Jawaban</a>
       <a class="<?= in_array($section, ['surveys', 'forms'], true) ? 'active' : '' ?>" href="<?= site_url('admin/forms') ?>"><span>▤</span> Survei, Form & Shortcut</a>
 
-      <?php if ($admin_role === 'superadmin'): ?>
+<?php if ($admin_role === 'superadmin'): ?>
         <span class="admin-nav-section">Integrasi data</span>
-        <a class="<?= $section === 'api-builder' ? 'active' : '' ?>" href="<?= site_url('admin/api-builder') ?>"><span>&lt;/&gt;</span> API Builder</a>
+        <a class="<?= $section === 'api-builder' ? 'active' : '' ?>" href="<?= site_url('admin/api-builder') ?>"><span></></span> API Builder</a>
+        <a class="<?= $section === 'sync-database' ? 'active' : '' ?>" href="<?= site_url('admin/sync-database') ?>"><span>⟳</span> Sinkronisasi Database</a>
       <?php endif; ?>
 
       <span class="admin-nav-section">Bantuan</span>

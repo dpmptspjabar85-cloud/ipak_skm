@@ -2828,4 +2828,266 @@ class Ipaksurvey_model extends CI_Model
         $decoded = json_decode((string) $value, true);
         return is_array($decoded) ? $decoded : [];
     }
+
+    public function sync_database()
+    {
+        $this->load->library('schema_definition');
+        $requiredSchema = $this->schema_definition->get_required_schema();
+        $dbName = $this->db->database;
+
+        $results = [
+            'tables_created' => [],
+            'tables_existed' => [],
+            'columns_added' => [],
+            'columns_existed' => [],
+            'indexes_created' => [],
+            'indexes_existed' => [],
+            'foreign_keys_created' => [],
+            'foreign_keys_existed' => [],
+            'errors' => [],
+        ];
+
+        foreach ($requiredSchema as $tableName => $tableDef) {
+            $tableExists = $this->db->table_exists($tableName);
+
+            if (!$tableExists) {
+                $createSql = $this->build_create_table_sql($tableName, $tableDef);
+                try {
+                    $this->db->query($createSql);
+                    $results['tables_created'][] = $tableName;
+                    $tableExists = true;
+                } catch (Exception $e) {
+                    $results['errors'][] = "Failed to create table {$tableName}: " . $e->getMessage();
+                    continue;
+                }
+            } else {
+                $results['tables_existed'][] = $tableName;
+            }
+
+            if ($tableExists) {
+                $existingColumns = $this->get_table_columns($tableName);
+                $requiredColumns = $tableDef['columns'];
+
+                foreach ($requiredColumns as $colName => $colDef) {
+                    if (!isset($existingColumns[$colName])) {
+                        $alterSql = $this->build_add_column_sql($tableName, $colName, $colDef);
+                        try {
+                            $this->db->query($alterSql);
+                            $results['columns_added'][] = "{$tableName}.{$colName}";
+                        } catch (Exception $e) {
+                            $results['errors'][] = "Failed to add column {$tableName}.{$colName}: " . $e->getMessage();
+                        }
+                    } else {
+                        $results['columns_existed'][] = "{$tableName}.{$colName}";
+                    }
+                }
+
+                $existingIndexes = $this->get_table_indexes($tableName);
+                $requiredIndexes = $tableDef['indexes'] ?? [];
+
+                foreach ($requiredIndexes as $idxName => $idxDef) {
+                    $idxColumns = implode(',', $idxDef['columns']);
+                    $idxExists = false;
+                    foreach ($existingIndexes as $existingIdx) {
+                        if ($existingIdx['Key_name'] === $idxName ||
+                            (isset($existingIdx['Column_name']) && $existingIdx['Column_name'] === $idxColumns && $existingIdx['Key_name'] !== 'PRIMARY')) {
+                            $idxExists = true;
+                            break;
+                        }
+                    }
+                    if (!$idxExists && $idxName !== 'PRIMARY') {
+                        $indexSql = $this->build_create_index_sql($tableName, $idxName, $idxDef);
+                        try {
+                            $this->db->query($indexSql);
+                            $results['indexes_created'][] = "{$tableName}.{$idxName}";
+                        } catch (Exception $e) {
+                            $results['errors'][] = "Failed to create index {$tableName}.{$idxName}: " . $e->getMessage();
+                        }
+                    } else {
+                        $results['indexes_existed'][] = "{$tableName}.{$idxName}";
+                    }
+                }
+
+                $existingFks = $this->get_table_foreign_keys($tableName);
+                $requiredFks = $tableDef['foreign_keys'] ?? [];
+
+                foreach ($requiredFks as $fkName => $fkDef) {
+                    $fkExists = isset($existingFks[$fkName]);
+                    if (!$fkExists) {
+                        $fkSql = $this->build_add_foreign_key_sql($tableName, $fkName, $fkDef);
+                        try {
+                            $this->db->query($fkSql);
+                            $results['foreign_keys_created'][] = "{$tableName}.{$fkName}";
+                        } catch (Exception $e) {
+                            $results['errors'][] = "Failed to add foreign key {$tableName}.{$fkName}: " . $e->getMessage();
+                        }
+                    } else {
+                        $results['foreign_keys_existed'][] = "{$tableName}.{$fkName}";
+                    }
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    private function get_table_columns($tableName)
+    {
+        $query = $this->db->query("
+            SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY, EXTRA
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+        ", [$this->db->database, $tableName]);
+
+        $columns = [];
+        foreach ($query->result_array() as $row) {
+            $columns[$row['COLUMN_NAME']] = $row;
+        }
+        return $columns;
+    }
+
+    private function get_table_indexes($tableName)
+    {
+        $query = $this->db->query("
+            SELECT INDEX_NAME AS Key_name, COLUMN_NAME, NON_UNIQUE
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+        ", [$this->db->database, $tableName]);
+
+        return $query->result_array();
+    }
+
+    private function get_table_foreign_keys($tableName)
+    {
+        $query = $this->db->query("
+            SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL
+        ", [$this->db->database, $tableName]);
+
+        $fks = [];
+        foreach ($query->result_array() as $row) {
+            $fks[$row['CONSTRAINT_NAME']] = $row;
+        }
+        return $fks;
+    }
+
+    private function build_create_table_sql($tableName, $tableDef)
+    {
+        $cols = [];
+        $primaryKeys = [];
+
+        foreach ($tableDef['columns'] as $colName => $colDef) {
+            $colSql = "`{$colName}` {$colDef['type']}";
+
+            if (!empty($colDef['nullable']) === false) {
+                $colSql .= ' NOT NULL';
+            } else {
+                $colSql .= ' NULL';
+            }
+
+            if (isset($colDef['default']) && $colDef['default'] !== '') {
+                $default = $colDef['default'];
+                if (is_string($default) && strpos($default, 'CURRENT_TIMESTAMP') === false && strpos($default, '(') === false) {
+                    if (stripos($colDef['type'], 'INT') !== false || stripos($colDef['type'], 'DECIMAL') !== false || stripos($colDef['type'], 'FLOAT') !== false) {
+                        $colSql .= " DEFAULT {$default}";
+                    } else {
+                        $colSql .= " DEFAULT '{$default}'";
+                    }
+                } else {
+                    $colSql .= " DEFAULT {$default}";
+                }
+            }
+
+            if (!empty($colDef['auto_increment'])) {
+                $colSql .= ' AUTO_INCREMENT';
+            }
+
+            if (!empty($colDef['primary'])) {
+                $primaryKeys[] = $colName;
+            }
+
+            $cols[] = $colSql;
+        }
+
+        if (!empty($primaryKeys)) {
+            $cols[] = 'PRIMARY KEY (`' . implode('`, `', $primaryKeys) . '`)';
+        }
+
+        $uniqueKeys = [];
+        $indexKeys = [];
+        foreach ($tableDef['indexes'] as $idxName => $idxDef) {
+            if ($idxDef['type'] === 'UNIQUE' && $idxName !== 'PRIMARY') {
+                $uniqueKeys[] = "UNIQUE KEY `{$idxName}` (`" . implode('`, `', $idxDef['columns']) . "`)";
+            } elseif ($idxDef['type'] === 'INDEX') {
+                $indexKeys[] = "KEY `{$idxName}` (`" . implode('`, `', $idxDef['columns']) . "`)";
+            }
+        }
+        $cols = array_merge($cols, $uniqueKeys, $indexKeys);
+
+        $foreignKeys = [];
+        foreach ($tableDef['foreign_keys'] as $fkName => $fkDef) {
+            $cols = implode('`, `', $fkDef['columns']);
+            $refCols = implode('`, `', $fkDef['ref_columns']);
+            $onUpdate = !empty($fkDef['on_update']) ? " ON UPDATE {$fkDef['on_update']}" : '';
+            $onDelete = !empty($fkDef['on_delete']) ? " ON DELETE {$fkDef['on_delete']}" : '';
+            $foreignKeys[] = "CONSTRAINT `{$fkName}` FOREIGN KEY (`{$cols}`) REFERENCES `{$fkDef['ref_table']}` (`{$refCols}`){$onUpdate}{$onDelete}";
+        }
+        $cols = array_merge($cols, $foreignKeys);
+
+        $engine = $tableDef['engine'] ?? 'InnoDB';
+        $charset = $tableDef['charset'] ?? 'utf8';
+        $collate = $tableDef['collate'] ?? 'utf8_general_ci';
+
+        return "CREATE TABLE IF NOT EXISTS `{$tableName}` (\n    " . implode(",\n    ", $cols) . "\n) ENGINE={$engine} DEFAULT CHARSET={$charset} COLLATE={$collate};";
+    }
+
+    private function build_add_column_sql($tableName, $colName, $colDef)
+    {
+        $colSql = "`{$colName}` {$colDef['type']}";
+
+        if (!empty($colDef['nullable']) === false) {
+            $colSql .= ' NOT NULL';
+        } else {
+            $colSql .= ' NULL';
+        }
+
+        if (isset($colDef['default']) && $colDef['default'] !== '') {
+            $default = $colDef['default'];
+            if (is_string($default) && strpos($default, 'CURRENT_TIMESTAMP') === false && strpos($default, '(') === false) {
+                if (stripos($colDef['type'], 'INT') !== false || stripos($colDef['type'], 'DECIMAL') !== false || stripos($colDef['type'], 'FLOAT') !== false) {
+                    $colSql .= " DEFAULT {$default}";
+                } else {
+                    $colSql .= " DEFAULT '{$default}'";
+                }
+            } else {
+                $colSql .= " DEFAULT {$default}";
+            }
+        }
+
+        if (!empty($colDef['auto_increment'])) {
+            $colSql .= ' AUTO_INCREMENT';
+        }
+
+        return "ALTER TABLE `{$tableName}` ADD COLUMN IF NOT EXISTS {$colSql};";
+    }
+
+    private function build_create_index_sql($tableName, $idxName, $idxDef)
+    {
+        $cols = implode('`, `', $idxDef['columns']);
+        if ($idxDef['type'] === 'UNIQUE') {
+            return "ALTER TABLE `{$tableName}` ADD UNIQUE KEY `{$idxName}` (`{$cols}`);";
+        }
+        return "ALTER TABLE `{$tableName}` ADD KEY `{$idxName}` (`{$cols}`);";
+    }
+
+    private function build_add_foreign_key_sql($tableName, $fkName, $fkDef)
+    {
+        $cols = implode('`, `', $fkDef['columns']);
+        $refCols = implode('`, `', $fkDef['ref_columns']);
+        $onUpdate = !empty($fkDef['on_update']) ? " ON UPDATE {$fkDef['on_update']}" : '';
+        $onDelete = !empty($fkDef['on_delete']) ? " ON DELETE {$fkDef['on_delete']}" : '';
+
+        return "ALTER TABLE `{$tableName}` ADD CONSTRAINT `{$fkName}` FOREIGN KEY (`{$cols}`) REFERENCES `{$fkDef['ref_table']}` (`{$refCols}`){$onUpdate}{$onDelete};";
+    }
 }

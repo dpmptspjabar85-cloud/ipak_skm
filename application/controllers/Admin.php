@@ -1612,6 +1612,27 @@ class Admin extends CI_Controller
         return $this->session->userdata('ipak_admin_role') === 'superadmin';
     }
 
+    public function sync_database()
+    {
+        $this->require_login();
+        $this->require_superadmin();
+
+        if (strtoupper($this->input->method()) === 'POST') {
+            $results = $this->ipak->sync_database();
+
+            $this->render('admin/sync_database', [
+                'page_title' => 'Sinkronisasi Database',
+                'results' => $results,
+            ]);
+            return;
+        }
+
+        $this->render('admin/sync_database', [
+            'page_title' => 'Sinkronisasi Database',
+            'results' => null,
+        ]);
+    }
+
     private function require_superadmin()
     {
         if (!$this->is_superadmin()) {
