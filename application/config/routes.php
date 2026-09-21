@@ -25,6 +25,7 @@ $route['admin/export'] = 'admin/export';
 $route['admin/questions'] = 'admin/questions';
 $route['admin/questions/create'] = 'admin/create_question';
 $route['admin/surveys'] = 'admin/surveys';
+$route['admin/delete-survey/(:num)']['post'] = 'admin/delete_survey/$1';
 $route['admin/forms'] = 'admin/forms';
 $route['admin/forms/create'] = 'admin/create_form';
 $route['admin/api-builder'] = 'admin/api_builder';

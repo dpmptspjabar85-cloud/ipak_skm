@@ -30,6 +30,7 @@
   <div class="question-admin-list">
     <?php foreach ($surveys as $surveyId => $survey): ?>
       <?php $locked = !empty($survey['is_system_locked']); ?>
+      <?php $mandatory = !empty($survey['is_mandatory']); ?>
       <details id="survey-<?= (int) $surveyId ?>" class="question-editor">
         <summary>
           <span class="question-editor-code" style="background:<?= html_escape($survey['color']) ?>"><?= html_escape($survey['survey_code']) ?></span>
@@ -39,6 +40,9 @@
           </span>
           <span class="question-editor-meta"><?= number_format((int) $survey['response_count']) ?> hasil tersimpan</span>
           <span class="badge"><?= (int) $survey['is_active'] === 1 ? 'Aktif' : 'Nonaktif' ?></span>
+          <?php if ($mandatory): ?>
+            <span class="badge badge-warning">Wajib</span>
+          <?php endif; ?>
         </summary>
         <div class="question-editor-body">
           <?php if ($locked): ?>
@@ -91,6 +95,12 @@
                 <?php else: ?>
                   <label class="question-active-check"><input type="checkbox" name="is_active" value="1" <?= (int) $survey['is_active'] === 1 ? 'checked' : '' ?>> Survei aktif</label>
                 <?php endif; ?>
+                <?php if ($locked): ?>
+                  <input type="hidden" name="is_mandatory" value="1">
+                  <div class="locked-switch">Wajib permanen · tidak dapat dihapus</div>
+                <?php else: ?>
+                  <label class="question-active-check"><input type="checkbox" name="is_mandatory" value="1" <?= $mandatory ? 'checked' : '' ?>> Survei wajib (tidak dapat dihapus)</label>
+                <?php endif; ?>
                 <div class="field full">
                   <label>Deskripsi</label>
                   <textarea name="description" maxlength="2000"><?= html_escape($survey['description']) ?></textarea>
@@ -113,6 +123,16 @@
                 <?php endforeach; ?>
               </div>
               <button class="btn btn-primary btn-sm" type="submit">Simpan perubahan survei</button>
+              <?php if ($locked): ?>
+                <span class="locked-switch">Survei sistem · tidak dapat dihapus</span>
+              <?php elseif ($mandatory): ?>
+                <span class="locked-switch">Survei wajib · tidak dapat dihapus</span>
+              <?php else: ?>
+                <form method="post" action="<?= site_url('admin/delete-survey/' . (int) $surveyId) ?>" class="delete-survey-form" onsubmit="return confirm('Yakin ingin menghapus survei ini? Tindakan tidak dapat dibatalkan.');">
+                  <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                  <button class="btn btn-danger btn-sm" type="submit">Hapus survei</button>
+                </form>
+              <?php endif; ?>
             </form>
           <?php else: ?>
             <p><?= html_escape($survey['description']) ?></p>

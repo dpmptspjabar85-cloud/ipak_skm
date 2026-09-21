@@ -533,6 +533,7 @@ class Admin extends CI_Controller
                     'description' => trim((string) $this->input->post('description', true)),
                     'color' => trim((string) $this->input->post('color', true)),
                     'is_active' => (int) $this->input->post('is_active', true) === 1,
+                    'is_mandatory' => (int) $this->input->post('is_mandatory', true) === 1,
                 ];
                 $questionIds = $this->input->post('question_ids', true);
                 $questionIds = is_array($questionIds) ? $questionIds : [];
@@ -622,6 +623,22 @@ class Admin extends CI_Controller
             'survey_error' => $this->session->flashdata('survey_error'),
             'is_superadmin' => $this->is_superadmin(),
         ]);
+    }
+
+    public function delete_survey($id = 0)
+    {
+        $this->require_login();
+        $this->require_superadmin();
+        if (strtoupper($this->input->method()) !== 'POST') {
+            show_error('Metode tidak diizinkan.', 405, 'Akses ditolak');
+        }
+        $surveyId = max(0, (int) $id);
+        $result = $this->ipak->delete_survey($surveyId);
+        $this->session->set_flashdata(
+            $result['ok'] ? 'survey_success' : 'survey_error',
+            $result['message']
+        );
+        return redirect('admin/surveys');
     }
 
     public function forms()

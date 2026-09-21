@@ -571,6 +571,7 @@ class Ipaksurvey_model extends CI_Model
             $row['id'] = (int) $row['id'];
             $row['is_active'] = (int) $row['is_active'];
             $row['is_system_locked'] = isset($row['is_system_locked']) ? (int) $row['is_system_locked'] : 0;
+            $row['is_mandatory'] = isset($row['is_mandatory']) ? (int) $row['is_mandatory'] : 0;
             $row['question_count'] = (int) $row['question_count'];
             $row['response_count'] = (int) $row['response_count'];
             if ($this->is_legacy_skm_survey_definition($row)) {
@@ -1465,6 +1466,81 @@ class Ipaksurvey_model extends CI_Model
         return $this->db->count_all_results('ipak_forms') > 0;
     }
 
+    public function delete_survey($surveyId)
+    {
+        $surveyId = (int) $surveyId;
+        if ($surveyId < 1) {
+            return ['ok' => false, 'message' => 'ID survei tidak valid.'];
+        }
+        $survey = $this->db
+            ->where('id', $surveyId)
+            ->limit(1)
+            ->get('ipak_surveys')
+            ->row_array();
+        if (!$survey) {
+            return ['ok' => false, 'message' => 'Survei tidak ditemukan.'];
+        }
+        if (!empty($survey['is_system_locked'])) {
+            return ['ok' => false, 'message' => 'Survei sistem (SKM) tidak dapat dihapus.'];
+        }
+        if (!empty($survey['is_mandatory'])) {
+            return ['ok' => false, 'message' => 'Survei wajib tidak dapat dihapus.'];
+        }
+
+        $responseCount = (int) $this->db
+            ->where('survey_id', $surveyId)
+            ->count_all_results('ipak_submission_surveys');
+        if ($responseCount > 0) {
+            return [
+                'ok' => false,
+                'message' => 'Survei masih mempunyai ' . $responseCount . ' data respons dan tidak dapat dihapus.',
+            ];
+        }
+
+        $formRows = $this->db
+            ->select('form_id')
+            ->where('survey_id', $surveyId)
+            ->get('ipak_form_surveys')
+            ->result_array();
+        $formIds = array_values(array_unique(array_column($formRows, 'form_id')));
+
+        $this->db->trans_start();
+        foreach ($formIds as $formId) {
+            $formId = (int) $formId;
+            $surveyCount = (int) $this->db
+                ->where('form_id', $formId)
+                ->count_all_results('ipak_form_surveys');
+            $formRow = $this->db
+                ->select('is_default')
+                ->where('id', $formId)
+                ->limit(1)
+                ->get('ipak_forms')
+                ->row_array();
+            $isDefault = !empty($formRow['is_default']);
+            if ($surveyCount <= 1 && !$isDefault) {
+                $this->db->where('id', $formId)->delete('ipak_forms');
+            } else {
+                $this->db
+                    ->where('form_id', $formId)
+                    ->where('survey_id', $surveyId)
+                    ->delete('ipak_form_surveys');
+            }
+        }
+        $this->db->where('id', $surveyId)->delete('ipak_surveys');
+        $this->db->trans_complete();
+
+        if (!$this->db->trans_status()) {
+            return [
+                'ok' => false,
+                'message' => 'Survei belum berhasil dihapus. Periksa kembali relasi data survei.',
+            ];
+        }
+        return [
+            'ok' => true,
+            'message' => 'Survei "' . $survey['survey_name'] . '" dan seluruh pengaturannya berhasil dihapus.',
+        ];
+    }
+
     public function save_survey(array $survey, array $questionIds)
     {
         $questionIds = array_values(array_filter(array_unique(array_map('intval', $questionIds))));
@@ -1493,6 +1569,7 @@ class Ipaksurvey_model extends CI_Model
             'description' => trim((string) $survey['description']),
             'color' => trim((string) $survey['color']),
             'is_active' => $isSystemLocked ? 1 : (!empty($survey['is_active']) ? 1 : 0),
+            'is_mandatory' => $isSystemLocked ? 1 : (!empty($survey['is_mandatory']) ? 1 : 0),
         ];
         if ($surveyId < 1) {
             $data['kode_unik'] = $this->new_survey_uuid();
