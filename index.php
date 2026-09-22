@@ -52,15 +52,13 @@ if (is_readable($ipakEnvFile)) {
         if ($line === '' || $line[0] === '#') {
             continue;
         }
-        $parts = explode('=', $line, 2);
-        if (count($parts) === 2) {
-            $key = trim($parts[0]);
-            $val = trim($parts[1]);
-            if (!getenv($key) || getenv($key) === false) {
+            $parts = explode('=', $line, 2);
+            if (count($parts) === 2) {
+                $key = trim($parts[0]);
+                $val = trim($parts[1]);
                 putenv($key . '=' . $val);
                 $_ENV[$key] = $val;
                 $_SERVER[$key] = $val;
-            }
         }
     }
 }
