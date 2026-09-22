@@ -38,20 +38,8 @@ date_default_timezone_set('Asia/Jakarta');
 */
 $ipakConfiguredBaseUrl = getenv('IPAK_BASE_URL');
 
-$host = $_SERVER;
-// var_dump($host);die();
-
 if ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
-    $ipakTrimmedBaseUrl = rtrim(trim($ipakConfiguredBaseUrl), '/') . '/';
-    $ipakIsLocalUrl = (
-        strpos($ipakTrimmedBaseUrl, 'http://'.$host) === 0
-        || strpos($ipakTrimmedBaseUrl, 'https://'.$host) === 0
-        || strpos($ipakTrimmedBaseUrl, 'http://'.$host) === 0
-        || strpos($ipakTrimmedBaseUrl, 'https://'.$host) === 0
-    );
-    if (!$ipakIsLocalUrl || !isset($_SERVER['HTTP_HOST'])) {
-        $config['base_url'] = $ipakTrimmedBaseUrl;
-    }
+    $config['base_url'] = rtrim(trim($ipakConfiguredBaseUrl), '/') . '/';
 } elseif (isset($_SERVER['HTTP_HOST'])) {
     $ipakForwardedProto = isset($_SERVER['HTTP_X_FORWARDED_PROTO'])
         ? strtolower(trim(explode(',', $_SERVER['HTTP_X_FORWARDED_PROTO'])[0]))
