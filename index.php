@@ -38,6 +38,35 @@
 
 /*
  *---------------------------------------------------------------
+ * ENVIRONMENT VARIABLE LOADER
+ *---------------------------------------------------------------
+ *
+ * Load .env file and set environment variables so that
+ * getenv() calls in configuration work correctly.
+ */
+$ipakEnvFile = __DIR__ . '/.env';
+if (is_readable($ipakEnvFile)) {
+    $envLines = file($ipakEnvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($envLines as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') {
+            continue;
+        }
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $key = trim($parts[0]);
+            $val = trim($parts[1]);
+            if (!getenv($key) || getenv($key) === false) {
+                putenv($key . '=' . $val);
+                $_ENV[$key] = $val;
+                $_SERVER[$key] = $val;
+            }
+        }
+    }
+}
+
+/*
+ *---------------------------------------------------------------
  * APPLICATION ENVIRONMENT
  *---------------------------------------------------------------
  *
@@ -55,14 +84,6 @@
  */
 	define('ENVIRONMENT', getenv('CI_ENV') !== false ? getenv('CI_ENV') : (isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development'));
 
-/*
- *---------------------------------------------------------------
- * ERROR REPORTING
- *---------------------------------------------------------------
- *
- * Different environments will require different levels of error reporting.
- * By default development will show errors but testing and live will hide them.
- */
 switch (ENVIRONMENT)
 {
 	case 'development':
