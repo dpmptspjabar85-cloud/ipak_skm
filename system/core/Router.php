@@ -102,16 +102,30 @@ class CI_Router {
 	 */
 	public $translate_uri_dashes = FALSE;
 
-	/**
-	 * Enable query strings flag
-	 *
-	 * Determines whether to use GET parameters or segment URIs
-	 *
-	 * @var	bool
-	 */
-	public $enable_query_strings = FALSE;
+/**
+ 	 * Enable query strings flag
+ 	 *
+ 	 * Determines whether to use GET parameters or segment URIs
+ 	 *
+ 	 * @var	bool
+ 	 */
+ 	public $enable_query_strings = FALSE;
 
-	// --------------------------------------------------------------------
+	/**
+	 * CI_URI class object
+	 *
+	 * @var	object
+	 */
+	public $uri;
+
+	/**
+	 * CI_Output class object
+	 *
+	 * @var	object
+	 */
+	public $output;
+
+ 	// --------------------------------------------------------------------
 
 	/**
 	 * Class constructor

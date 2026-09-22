@@ -82,20 +82,27 @@ class CI_URI {
 	 */
 	public $rsegments = array();
 
-	/**
-	 * Permitted URI chars
-	 *
-	 * PCRE character group allowed in URI segments
-	 *
-	 * @var	string
-	 */
-	protected $_permitted_uri_chars;
+/**
+ 	 * Permitted URI chars
+ 	 *
+ 	 * PCRE character group allowed in URI segments
+ 	 *
+ 	 * @var	string
+ 	 */
+ 	protected $_permitted_uri_chars;
 
 	/**
-	 * Class constructor
+	 * Config class instance
 	 *
-	 * @return	void
+	 * @var	CI_Config
 	 */
+	protected $config;
+
+ 	/**
+ 	 * Class constructor
+ 	 *
+ 	 * @return	void
+ 	 */
 	public function __construct()
 	{
 		$this->config =& load_class('Config', 'core');

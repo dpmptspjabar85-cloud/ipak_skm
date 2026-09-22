@@ -120,16 +120,17 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 
 	// ------------------------------------------------------------------------
 
-	/**
-	 * Open
-	 *
-	 * Sanitizes the save_path directory.
-	 *
-	 * @param	string	$save_path	Path to session files' directory
-	 * @param	string	$name		Session cookie name
-	 * @return	bool
-	 */
-	public function open($save_path, $name)
+/**
+ 	 * Open
+ 	 *
+ 	 * Sanitizes the save_path directory.
+ 	 *
+ 	 * @param	string	$save_path	Path to session files' directory
+ 	 * @param	string	$name		Session cookie name
+ 	 * @return	bool
+ 	 */
+ 	#[\ReturnTypeWillChange]
+ 	public function open($save_path, $name)
 	{
 		if ( ! is_dir($save_path))
 		{
@@ -155,15 +156,16 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 
 	// ------------------------------------------------------------------------
 
-	/**
-	 * Read
-	 *
-	 * Reads session data and acquires a lock
-	 *
-	 * @param	string	$session_id	Session ID
-	 * @return	string	Serialized session data
-	 */
-	public function read($session_id)
+/**
+ 	 * Read
+ 	 *
+ 	 * Reads session data and acquires a lock
+ 	 *
+ 	 * @param	string	$session_id	Session ID
+ 	 * @return	string	Serialized session data
+ 	 */
+ 	#[\ReturnTypeWillChange]
+ 	public function read($session_id)
 	{
 		// This might seem weird, but PHP 5.6 introduces session_reset(),
 		// which re-reads session data
@@ -223,16 +225,17 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 
 	// ------------------------------------------------------------------------
 
-	/**
-	 * Write
-	 *
-	 * Writes (create / update) session data
-	 *
-	 * @param	string	$session_id	Session ID
-	 * @param	string	$session_data	Serialized session data
-	 * @return	bool
-	 */
-	public function write($session_id, $session_data)
+/**
+ 	 * Write
+ 	 *
+ 	 * Writes (create / update) session data
+ 	 *
+ 	 * @param	string	$session_id	Session ID
+ 	 * @param	string	$session_data	Serialized session data
+ 	 * @return	bool
+ 	 */
+ 	#[\ReturnTypeWillChange]
+ 	public function write($session_id, $session_data)
 	{
 		// If the two IDs don't match, we have a session_regenerate_id() call
 		// and we need to close the old handle and open a new one
@@ -282,14 +285,15 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 
 	// ------------------------------------------------------------------------
 
-	/**
-	 * Close
-	 *
-	 * Releases locks and closes file descriptor.
-	 *
-	 * @return	bool
-	 */
-	public function close()
+/**
+ 	 * Close
+ 	 *
+ 	 * Releases locks and closes file descriptor.
+ 	 *
+ 	 * @return	bool
+ 	 */
+ 	#[\ReturnTypeWillChange]
+ 	public function close()
 	{
 		if (is_resource($this->_file_handle))
 		{
@@ -304,15 +308,16 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 
 	// ------------------------------------------------------------------------
 
-	/**
-	 * Destroy
-	 *
-	 * Destroys the current session.
-	 *
-	 * @param	string	$session_id	Session ID
-	 * @return	bool
-	 */
-	public function destroy($session_id)
+/**
+ 	 * Destroy
+ 	 *
+ 	 * Destroys the current session.
+ 	 *
+ 	 * @param	string	$session_id	Session ID
+ 	 * @return	bool
+ 	 */
+ 	#[\ReturnTypeWillChange]
+ 	public function destroy($session_id)
 	{
 		if ($this->close() === $this->_success)
 		{
@@ -345,15 +350,16 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 
 	// ------------------------------------------------------------------------
 
-	/**
-	 * Garbage Collector
-	 *
-	 * Deletes expired sessions
-	 *
-	 * @param	int 	$maxlifetime	Maximum lifetime of sessions
-	 * @return	bool
-	 */
-	public function gc($maxlifetime)
+/**
+ 	 * Garbage Collector
+ 	 *
+ 	 * Deletes expired sessions
+ 	 *
+ 	 * @param	int 	$maxlifetime	Maximum lifetime of sessions
+ 	 * @return	bool
+ 	 */
+ 	#[\ReturnTypeWillChange]
+ 	public function gc($maxlifetime)
 	{
 		if ( ! is_dir($this->_config['save_path']) OR ($directory = opendir($this->_config['save_path'])) === FALSE)
 		{

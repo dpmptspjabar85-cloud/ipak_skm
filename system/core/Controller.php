@@ -58,6 +58,25 @@ class CI_Controller {
 	 */
 	private static $instance;
 
+	// Core libraries
+	public $benchmark;
+	public $hooks;
+	public $config;
+	public $log;
+	public $utf8;
+	public $uri;
+	public $router;
+	public $exceptions;
+	public $output;
+	public $security;
+	public $input;
+	public $lang;
+	public $load;
+	public $db;
+	public $session;
+	public $form_validation;
+	public $ipak;
+
 	/**
 	 * Class constructor
 	 *
