@@ -38,9 +38,7 @@ date_default_timezone_set('Asia/Jakarta');
 */
 $ipakConfiguredBaseUrl = getenv('IPAK_BASE_URL');
 
-if ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
-    $config['base_url'] = rtrim(trim($ipakConfiguredBaseUrl), '/') . '/';
-} elseif (isset($_SERVER['HTTP_HOST'])) {
+if (isset($_SERVER['HTTP_HOST'])) {
     $ipakForwardedProto = isset($_SERVER['HTTP_X_FORWARDED_PROTO'])
         ? strtolower(trim(explode(',', $_SERVER['HTTP_X_FORWARDED_PROTO'])[0]))
         : '';
@@ -53,6 +51,8 @@ if ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
     $ipakBasePath = ($ipakBasePath === '/' || $ipakBasePath === '.') ? '' : '/' . trim($ipakBasePath, '/');
 
     $config['base_url'] = $ipakScheme . $_SERVER['HTTP_HOST'] . $ipakBasePath . '/';
+} elseif ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
+    $config['base_url'] = rtrim(trim($ipakConfiguredBaseUrl), '/') . '/';
 } else {
     $config['base_url'] = 'http://127.0.0.1/';
 }
