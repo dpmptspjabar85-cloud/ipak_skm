@@ -5,199 +5,115 @@
   <div class="alert alert-error"><?= html_escape($form_error) ?></div>
 <?php endif; ?>
 
-<section class="admin-guide-banner">
-  <div class="guide-number">1-3</div>
+<nav class="form-type-nav" aria-label="Jenis pengaturan form">
+  <a class="<?= $form_type === 'primary' ? 'active' : '' ?>" href="<?= site_url('admin/forms') . '?type=primary' ?>">Form Utama <span><?= count($primary_forms) ?></span></a>
+  <a class="<?= $form_type === 'combined' ? 'active' : '' ?>" href="<?= site_url('admin/forms') . '?type=combined' ?>">Form Gabungan <span><?= count($combined_forms) ?></span></a>
+  <a class="<?= $form_type === 'shortcuts' ? 'active' : '' ?>" href="<?= site_url('admin/forms') . '?type=shortcuts' ?>">Shortcut <span><?= count($primary_form_shortcuts) + count($combined_form_shortcuts) ?></span></a>
+</nav>
+
+<section class="admin-guide-banner form-type-banner">
+  <div class="guide-number"><?= $form_type === 'combined' ? '2+' : ($form_type === 'shortcuts' ? '↗' : '1') ?></div>
   <div>
-    <strong>Satu halaman untuk mengelola survei sampai siap dibagikan</strong>
-    <p>Setiap <b>survei</b> otomatis mempunyai satu <b>form utama</b>. Jika beberapa survei ingin diisi dalam satu alur, buat <b>paket survei gabungan</b> tanpa mengubah form utamanya.</p>
-  </div>
-  <a class="btn btn-secondary btn-sm" href="<?= site_url('admin/help') ?>">Lihat panduan lengkap</a>
-</section>
-
-<section class="panel survey-overview-panel">
-  <div class="panel-head">
-    <div>
-      <h2>Survei yang tersedia</h2>
-      <p>Hubungannya satu banding satu: <?= count($surveys) ?> survei mempunyai <?= count($primary_forms) ?> form utama. Paket gabungan dihitung terpisah.</p>
-    </div>
-    <div class="panel-head-actions">
-      <span class="badge"><?= count($surveys) ?> survei</span>
-      <a class="btn btn-secondary btn-sm" href="<?= site_url('admin/surveys') ?>">Pengaturan survei lanjutan</a>
-    </div>
-  </div>
-  <div class="survey-overview-grid">
-    <?php foreach ($surveys as $surveyId => $survey): ?>
-      <?php
-      $usage = isset($survey_form_usage[$surveyId])
-          ? $survey_form_usage[$surveyId]
-          : ['combined_total' => 0, 'combined_active' => 0, 'combined_codes' => []];
-      $primaryForm = isset($primary_form_by_survey[$surveyId])
-          ? $primary_form_by_survey[$surveyId]
-          : [];
-      $locked = !empty($survey['is_system_locked']);
-      ?>
-      <article class="survey-overview-card" style="--survey-color:<?= html_escape($survey['color']) ?>">
-        <div class="survey-overview-head">
-          <span class="survey-overview-code"><?= html_escape($survey['survey_code']) ?></span>
-          <span class="badge"><?= (int) $survey['is_active'] === 1 ? 'Aktif' : 'Nonaktif' ?></span>
-        </div>
-        <h3><?= html_escape($survey['survey_name']) ?></h3>
-        <p><?= html_escape($survey['index_label']) ?></p>
-        <div class="survey-overview-metrics">
-          <div><strong><?= (int) $survey['question_count'] ?></strong><span>pertanyaan</span></div>
-          <div><strong><?= $primaryForm ? '1' : '0' ?></strong><span>form utama</span></div>
-        </div>
-        <small>
-          <?= $locked
-              ? 'SKM lama dilindungi. Ikut dalam ' . (int) $usage['combined_total'] . ' paket gabungan.'
-              : ((int) $usage['combined_total'] > 0
-                  ? 'Ikut dalam paket: ' . html_escape(implode(', ', $usage['combined_codes']))
-                  : 'Belum dimasukkan ke paket survei gabungan.') ?>
-        </small>
-        <div class="survey-overview-actions">
-          <?php if ($primaryForm): ?>
-            <a target="_blank" rel="noopener" href="<?= site_url('survey') . '?form=' . rawurlencode($primaryForm['form_code']) ?>">Buka form utama</a>
-          <?php endif; ?>
-          <a href="<?= site_url('admin/surveys') . '#survey-' . (int) $surveyId ?>">Atur survei</a>
-        </div>
-      </article>
-    <?php endforeach; ?>
+    <strong><?= $form_type === 'combined' ? 'Form gabungan' : ($form_type === 'shortcuts' ? 'Shortcut publik' : 'Form utama per survei') ?></strong>
+    <p><?= $form_type === 'combined'
+        ? 'Gabungkan beberapa survei dalam satu alur. Hasil tiap survei tetap dihitung terpisah.'
+        : ($form_type === 'shortcuts'
+            ? 'Buka tautan publik untuk pratinjau form utama atau paket survei.'
+            : 'Atur nama, data responden, status, dan visibilitas form untuk satu survei.') ?></p>
   </div>
 </section>
 
+<?php if ($form_type === 'shortcuts'): ?>
 <section class="panel shortcut-panel">
-  <div class="panel-head">
-    <div>
-      <h2>Form utama setiap survei</h2>
-      <p>Satu survei selalu mempunyai satu form utama. Shortcut ini dapat dipakai untuk pengisian survei secara terpisah.</p>
-    </div>
-    <span class="badge"><?= count($primary_form_shortcuts) ?> form utama aktif</span>
-  </div>
+  <div class="panel-head"><div><h2>Form utama</h2><p>Shortcut langsung untuk masing-masing survei.</p></div><span class="badge"><?= count($primary_form_shortcuts) ?> aktif</span></div>
+  <?php if (!$primary_form_shortcuts): ?>
+    <div class="empty-state compact-empty-state">Belum ada shortcut form utama yang aktif.</div>
+  <?php else: ?>
   <div class="survey-shortcut-grid">
     <?php foreach ($primary_form_shortcuts as $shortcut): ?>
       <?php
       $shortcutUrl = site_url('survey') . '?form=' . rawurlencode($shortcut['form_code']);
-      $shortcutNeedsResi = !empty($shortcut['requires_resi']);
       $shortcutSurveyCodes = [];
-      foreach ($shortcut['shortcut_surveys'] as $shortcutSurvey) {
-          $shortcutSurveyCodes[] = $shortcutSurvey['code'];
-      }
+      foreach ($shortcut['shortcut_surveys'] as $shortcutSurvey) { $shortcutSurveyCodes[] = $shortcutSurvey['code']; }
       ?>
       <a class="survey-shortcut-card" href="<?= html_escape($shortcutUrl) ?>" target="_blank" rel="noopener" style="--shortcut-color:<?= html_escape($shortcut['shortcut_color']) ?>">
-        <span class="shortcut-code"><?= html_escape($shortcut['form_code']) ?></span>
-        <strong><?= html_escape($shortcut['form_name']) ?></strong>
+        <span class="shortcut-code"><?= html_escape($shortcut['form_code']) ?></span><strong><?= html_escape($shortcut['form_name']) ?></strong>
         <small>Survei: <?= html_escape(implode(' + ', $shortcutSurveyCodes)) ?></small>
-        <small><?= $shortcutNeedsResi ? 'Memerlukan nomor resi karena memuat SKM' : 'Dapat diisi langsung tanpa nomor resi' ?></small>
-        <code>?form=<?= html_escape($shortcut['form_code']) ?></code>
-        <b>Buka form →</b>
+        <small><?= !empty($shortcut['requires_resi']) ? 'Memerlukan nomor resi SKM' : 'Dapat diisi tanpa nomor resi' ?></small>
+        <code>?form=<?= html_escape($shortcut['form_code']) ?></code><b>Buka form →</b>
       </a>
     <?php endforeach; ?>
   </div>
-</section>
-
-<section class="panel combined-package-panel">
-  <div class="panel-head">
-    <div>
-      <h2>Paket survei gabungan</h2>
-      <p>Paket hanya menyatukan alur pengisian. Hasil setiap survei tetap disimpan dan dihitung secara terpisah.</p>
-    </div>
-    <span class="badge"><?= count($combined_form_shortcuts) ?> paket aktif</span>
-  </div>
-
-  <?php if ($is_superadmin): ?>
-    <details class="package-creator">
-      <summary>
-        <span class="package-creator-icon">+</span>
-        <span><strong>Buat paket survei gabungan</strong><small>Pilih minimal dua survei yang akan diisi melalui satu shortcut.</small></span>
-        <b>Buka pengaturan</b>
-      </summary>
-      <div class="package-creator-body">
-        <form method="post" action="<?= site_url('admin/forms') ?>">
-          <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
-          <input type="hidden" name="form_id" value="0">
-          <input type="hidden" name="form_kind" value="combined">
-          <input type="hidden" name="is_active" value="1">
-          <input type="hidden" name="is_public_listed" value="1">
-          <div class="question-config-grid">
-            <div class="field">
-              <label>Kode paket</label>
-              <input name="form_code" maxlength="30" placeholder="Contoh: SKM-IPAK-2026" required>
-              <small class="field-help"><b>Petunjuk:</b> Dipakai pada URL shortcut, gunakan huruf, angka, atau tanda hubung tanpa spasi.</small>
-            </div>
-            <div class="field">
-              <label>Nama paket</label>
-              <input name="form_name" maxlength="150" placeholder="Contoh: Paket SKM dan IPAK" required>
-              <small class="field-help"><b>Petunjuk:</b> Nama ini hanya untuk membedakan paket pengisian.</small>
-            </div>
-            <div class="field full">
-              <label>Deskripsi paket</label>
-              <textarea name="description" maxlength="2000" placeholder="Jelaskan kapan paket gabungan ini digunakan."></textarea>
-            </div>
-          </div>
-          <div class="field-label">Pilih minimal dua survei</div>
-          <div class="choice-grid survey-picker">
-            <?php foreach ($surveys as $surveyId => $survey): ?>
-              <label class="choice-card <?= !empty($survey['is_system_locked']) ? 'choice-card-locked' : '' ?>">
-                <input type="checkbox" name="survey_ids[]" value="<?= (int) $surveyId ?>">
-                <span>
-                  <b><?= html_escape($survey['survey_name']) ?></b><br>
-                  <small><?= html_escape($survey['survey_code']) ?><?= !empty($survey['is_system_locked']) ? ' · membawa aturan resi SKM' : '' ?></small>
-                </span>
-              </label>
-            <?php endforeach; ?>
-          </div>
-          <div class="form-save-actions">
-            <button class="btn btn-primary" type="submit">Simpan paket gabungan</button>
-            <span class="field-help">Setelah dibuat, data responden dapat disesuaikan pada pengaturan paket di bawah.</span>
-          </div>
-        </form>
-      </div>
-    </details>
   <?php endif; ?>
-
+</section>
+<section class="panel combined-package-panel">
+  <div class="panel-head"><div><h2>Paket gabungan</h2><p>Shortcut untuk mengisi beberapa survei sekaligus.</p></div><span class="badge"><?= count($combined_form_shortcuts) ?> aktif</span></div>
   <?php if (!$combined_form_shortcuts): ?>
-    <div class="empty-state compact-empty-state">Belum ada paket gabungan aktif. Form utama setiap survei tetap dapat digunakan.</div>
+    <div class="empty-state compact-empty-state">Belum ada shortcut paket gabungan aktif.</div>
   <?php else: ?>
     <div class="survey-shortcut-grid">
       <?php foreach ($combined_form_shortcuts as $shortcut): ?>
         <?php
         $shortcutUrl = site_url('survey') . '?form=' . rawurlencode($shortcut['form_code']);
-        $shortcutNeedsResi = !empty($shortcut['requires_resi']);
         $shortcutSurveyCodes = [];
-        foreach ($shortcut['shortcut_surveys'] as $shortcutSurvey) {
-            $shortcutSurveyCodes[] = $shortcutSurvey['code'];
-        }
+        foreach ($shortcut['shortcut_surveys'] as $shortcutSurvey) { $shortcutSurveyCodes[] = $shortcutSurvey['code']; }
         ?>
         <a class="survey-shortcut-card combined-shortcut-card" href="<?= html_escape($shortcutUrl) ?>" target="_blank" rel="noopener" style="--shortcut-color:<?= html_escape($shortcut['shortcut_color']) ?>">
-          <span class="shortcut-code"><?= html_escape($shortcut['form_code']) ?></span>
-          <strong><?= html_escape($shortcut['form_name']) ?></strong>
-          <small>Paket gabungan: <?= html_escape(implode(' + ', $shortcutSurveyCodes)) ?></small>
-          <small><?= $shortcutNeedsResi ? 'Memerlukan nomor resi karena memuat SKM' : 'Dapat diisi langsung tanpa nomor resi' ?></small>
-          <code>?form=<?= html_escape($shortcut['form_code']) ?></code>
-          <b>Buka paket →</b>
+          <span class="shortcut-code"><?= html_escape($shortcut['form_code']) ?></span><strong><?= html_escape($shortcut['form_name']) ?></strong>
+          <small>Survei: <?= html_escape(implode(' + ', $shortcutSurveyCodes)) ?></small>
+          <small><?= !empty($shortcut['requires_resi']) ? 'Memerlukan nomor resi SKM' : 'Dapat diisi tanpa nomor resi' ?></small>
+          <code>?form=<?= html_escape($shortcut['form_code']) ?></code><b>Buka paket →</b>
         </a>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
 </section>
+<?php elseif ($form_type === 'combined'): ?>
+<section class="panel combined-package-panel">
+  <div class="panel-head"><div><h2>Buat form gabungan</h2><p>Pilih minimal dua survei untuk satu alur pengisian.</p></div><span class="badge"><?= count($combined_forms) ?> paket</span></div>
+  <?php if ($is_superadmin): ?>
+    <details class="package-creator" open>
+      <summary><span class="package-creator-icon">+</span><span><strong>Paket survei baru</strong><small>Isi nama dan pilih surveinya.</small></span><b>Buka pengaturan</b></summary>
+      <div class="package-creator-body">
+        <form method="post" action="<?= site_url('admin/forms') ?>">
+          <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+          <input type="hidden" name="form_id" value="0"><input type="hidden" name="form_kind" value="combined">
+          <input type="hidden" name="is_active" value="1"><input type="hidden" name="is_public_listed" value="1">
+          <div class="question-config-grid">
+            <div class="field"><label>Kode paket</label><input name="form_code" maxlength="30" placeholder="Contoh: SKM-IPAK-2026" required></div>
+            <div class="field"><label>Nama paket</label><input name="form_name" maxlength="150" placeholder="Contoh: Paket SKM dan IPAK" required></div>
+            <div class="field full"><label>Deskripsi</label><textarea name="description" maxlength="2000"></textarea></div>
+          </div>
+          <div class="field-label">Pilih minimal dua survei</div>
+          <div class="choice-grid survey-picker">
+            <?php foreach ($surveys as $surveyId => $survey): ?>
+              <label class="choice-card <?= !empty($survey['is_system_locked']) ? 'choice-card-locked' : '' ?>"><input type="checkbox" name="survey_ids[]" value="<?= (int) $surveyId ?>"><span><b><?= html_escape($survey['survey_name']) ?></b><br><small><?= html_escape($survey['survey_code']) ?></small></span></label>
+            <?php endforeach; ?>
+          </div>
+          <div class="form-save-actions"><button class="btn btn-primary" type="submit">Buat form gabungan</button></div>
+        </form>
+      </div>
+    </details>
+  <?php endif; ?>
+</section>
+<?php endif; ?>
 
 <?php
-$formGroups = [
-    [
+$formGroups = $form_type === 'primary'
+  ? [[
         'kind' => 'primary',
         'title' => 'Pengaturan form utama',
         'description' => 'Setiap baris terhubung permanen ke satu survei. Atur nama, data responden, status, dan shortcutnya.',
         'forms' => $primary_forms,
         'badge' => count($primary_forms) . ' form utama',
-    ],
-    [
+  ]]
+  : ($form_type === 'combined' ? [[
         'kind' => 'combined',
         'title' => 'Pengaturan paket gabungan',
         'description' => 'Paket berisi minimal dua survei, tetapi tidak dihitung sebagai form utama tambahan.',
         'forms' => $combined_forms,
         'badge' => count($combined_forms) . ' paket',
-    ],
-];
+  ]] : []);
 ?>
 <?php foreach ($formGroups as $formGroup): ?>
 <section class="panel">
@@ -218,7 +134,7 @@ $formGroups = [
       <div class="empty-state compact-empty-state">Belum ada data pada bagian ini.</div>
     <?php endif; ?>
     <?php foreach ($formGroup['forms'] as $form): ?>
-      <details class="question-editor">
+      <details id="form-<?= (int) $form['id'] ?>" class="question-editor">
         <summary>
           <span class="question-editor-code"><?= html_escape($form['form_code']) ?></span>
           <span class="question-editor-copy">
@@ -389,6 +305,7 @@ $formGroups = [
 <?php endforeach; ?>
 
 <?php if ($is_superadmin): ?>
+  <?php if ($form_type === 'primary'): ?>
   <section class="builder-cta">
     <div class="guide-number">＋</div>
     <div>
@@ -397,4 +314,18 @@ $formGroups = [
     </div>
     <a class="btn btn-primary" href="<?= site_url('admin/forms/create') ?>">Buat survei baru →</a>
   </section>
+  <?php endif; ?>
 <?php endif; ?>
+
+<script>
+(function () {
+  if (!window.location.hash) {
+    return;
+  }
+  var selectedForm = document.querySelector(window.location.hash);
+  if (selectedForm && selectedForm.tagName === 'DETAILS') {
+    selectedForm.open = true;
+    selectedForm.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+}());
+</script>

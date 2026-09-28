@@ -27,13 +27,18 @@
 
       <span class="admin-nav-section">Pengaturan survei</span>
       <a class="<?= $section === 'questions' ? 'active' : '' ?>" href="<?= site_url('admin/questions') ?>"><span>?</span> Pertanyaan & Jawaban</a>
-      <a class="<?= in_array($section, ['surveys', 'forms'], true) ? 'active' : '' ?>" href="<?= site_url('admin/forms') ?>"><span>▤</span> Survei, Form & Shortcut</a>
+      <a class="<?= $section === 'surveys' ? 'active' : '' ?>" href="<?= site_url('admin/surveys') ?>"><span>▤</span> Survei</a>
+      <a class="<?= $section === 'kbli' ? 'active' : '' ?>" href="<?= site_url('admin/kbli') ?>"><span>⌕</span> KBLI</a>
+      <a class="<?= $section === 'forms' && $this->input->get('type', true) !== 'shortcuts' ? 'active' : '' ?>" href="<?= site_url('admin/forms') . '?type=primary' ?>"><span>▧</span> Form</a>
+      <a class="<?= $section === 'forms' && $this->input->get('type', true) === 'shortcuts' ? 'active' : '' ?>" href="<?= site_url('admin/forms') . '?type=shortcuts' ?>"><span>↗</span> Shortcut</a>
 
-<?php if ($admin_role === 'superadmin'): ?>
-        <span class="admin-nav-section">Integrasi data</span>
-        <a class="<?= $section === 'api-builder' ? 'active' : '' ?>" href="<?= site_url('admin/api-builder') ?>"><span></></span> API Builder</a>
-        <a class="<?= $section === 'sync-database' ? 'active' : '' ?>" href="<?= site_url('admin/sync-database') ?>"><span>⟳</span> Sinkronisasi Database</a>
+      <?php if ($admin_role === 'superadmin'): ?>
+        <span class="admin-nav-section">Pengguna</span>
+        <a class="<?= $section === 'users' || $section === 'users/create' || $section === 'users/edit' ? 'active' : '' ?>" href="<?= site_url('admin/users') ?>"><span>👤</span> Kelola Akun</a>
       <?php endif; ?>
+
+      <span class="admin-nav-section">Akun saya</span>
+      <a class="<?= $section === 'profile' ? 'active' : '' ?>" href="<?= site_url('admin/profile') ?>"><span>⚙</span> Profil & Password</a>
 
       <span class="admin-nav-section">Bantuan</span>
       <a class="<?= $section === 'help' ? 'active' : '' ?>" href="<?= site_url('admin/help') ?>"><span>i</span> Panduan Pengguna</a>

@@ -56,6 +56,21 @@
   </section>
 </div>
 
+<?php if ($admin_role === 'superadmin'): ?>
+<section class="panel" style="margin-top:18px">
+  <div class="panel-head">
+    <div>
+      <h2>Struktur Database</h2>
+      <p>Lengkapi tabel, kolom, index, dan foreign key yang belum ada, termasuk katalog KBLI.</p>
+    </div>
+    <a class="btn btn-primary" href="<?= site_url('admin/sync-database') ?>">Sinkronisasi Database</a>
+  </div>
+  <div style="padding:0 18px 16px;color:#667085;font-size:12px;line-height:1.6">
+    Aman dijalankan berulang kali. Struktur dan data yang sudah ada tidak dihapus.
+  </div>
+</section>
+<?php endif; ?>
+
 <section class="panel help-glossary">
   <div class="panel-head"><div><h2>Pengaturan lanjutan</h2><p>Gunakan tombol pada halaman utama jika ingin mengubah data yang sudah dibuat.</p></div></div>
   <dl>

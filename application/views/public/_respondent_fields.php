@@ -19,11 +19,22 @@ $coreFields = ['name', 'email', 'phone', 'identity_number', 'age', 'gender', 'ed
     ?>
 
     <?php if ($fieldKey === 'gender'): ?>
+      <?php
+      $genderOptions = !empty($setting['options']) ? $setting['options'] : [
+          ['label' => 'Laki-laki', 'value' => 1],
+          ['label' => 'Perempuan', 'value' => 2],
+      ];
+      ?>
       <div class="field full">
         <span class="field-label"><?= html_escape($setting['field_label']) ?><?php if ($required): ?> <span class="required-mark">*</span><?php endif; ?></span>
         <div class="choice-grid">
-          <label class="choice-card"><input type="radio" name="gender" value="1" <?= $required ? 'required' : '' ?> <?= (string) $value === '1' ? 'checked' : '' ?>> Laki-laki</label>
-          <label class="choice-card"><input type="radio" name="gender" value="2" <?= $required ? 'required' : '' ?> <?= (string) $value === '2' ? 'checked' : '' ?>> Perempuan</label>
+          <?php foreach ($genderOptions as $option): ?>
+            <?php
+            $optionValue = is_array($option) && isset($option['value']) ? $option['value'] : $option;
+            $optionLabel = is_array($option) && isset($option['label']) ? $option['label'] : $option;
+            ?>
+            <label class="choice-card"><input type="radio" name="gender" value="<?= html_escape($optionValue) ?>" <?= $required ? 'required' : '' ?> <?= (string) $value === (string) $optionValue ? 'checked' : '' ?>> <?= html_escape($optionLabel) ?></label>
+          <?php endforeach; ?>
         </div>
         <small class="field-help"><b>Petunjuk:</b> <?= html_escape($setting['help_text']) ?></small>
         <?php if (isset($validation_errors['gender'])): ?><small class="field-error"><?= html_escape(strip_tags($validation_errors['gender'])) ?></small><?php endif; ?>
@@ -32,16 +43,24 @@ $coreFields = ['name', 'email', 'phone', 'identity_number', 'age', 'gender', 'ed
     <?php elseif (in_array($fieldKey, ['education', 'job', 'service'], true) || $fieldType === 'select'): ?>
       <?php
       $selectOptions = [];
-      if ($fieldKey === 'education') {
+          if (!empty($setting['kbli_options'])) {
+            $selectOptions = $setting['kbli_options'];
+          } elseif (!empty($setting['options']['source']) && $setting['options']['source'] === 'ipak_kbli') {
+            $selectOptions = [];
+          } elseif (!empty($setting['options'])) {
+          foreach ($setting['options'] as $option) {
+            if (is_array($option) && isset($option['value'], $option['label'])) {
+              $selectOptions[$option['value']] = $option['label'];
+            } else {
+              $selectOptions[$option] = $option;
+            }
+          }
+        } elseif ($fieldKey === 'education') {
           $selectOptions = $education;
       } elseif ($fieldKey === 'job') {
           $selectOptions = $jobs;
       } elseif ($fieldKey === 'service') {
           $selectOptions = $services;
-      } elseif (!empty($setting['options'])) {
-          foreach ($setting['options'] as $option) {
-              $selectOptions[$option] = $option;
-          }
       }
       ?>
       <?php if ($fieldKey === 'service' && $requires_resi): ?>

@@ -19,6 +19,272 @@ class Ipaksurvey_model extends CI_Model
         return $this->formPublicVisibilitySupported;
     }
 
+    private function kbli_schema_definition()
+    {
+        return [
+            'columns' => [
+                'id' => ['type' => 'INT UNSIGNED', 'auto_increment' => true, 'nullable' => false, 'primary' => true],
+                'kode_gabungan' => ['type' => 'VARCHAR(32)', 'nullable' => false],
+                'kategori' => ['type' => 'VARCHAR(32)', 'nullable' => false, 'default' => ''],
+                'kode' => ['type' => 'VARCHAR(32)', 'nullable' => false, 'default' => ''],
+                'sektor_bps' => ['type' => 'VARCHAR(255)', 'nullable' => false, 'default' => ''],
+                'judul' => ['type' => 'VARCHAR(255)', 'nullable' => false, 'default' => ''],
+                'deskripsi' => ['type' => 'TEXT', 'nullable' => false],
+                'digit' => ['type' => 'TINYINT UNSIGNED', 'nullable' => false, 'default' => '0'],
+                'hirarki' => ['type' => 'VARCHAR(40)', 'nullable' => false, 'default' => ''],
+                'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+            ],
+            'indexes' => [
+                'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
+                'uq_ipak_kbli_kode_gabungan' => ['columns' => ['kode_gabungan'], 'type' => 'UNIQUE'],
+                'idx_ipak_kbli_kategori' => ['columns' => ['kategori'], 'type' => 'INDEX'],
+                'idx_ipak_kbli_kode' => ['columns' => ['kode'], 'type' => 'INDEX'],
+                'idx_ipak_kbli_digit_hirarki' => ['columns' => ['digit', 'hirarki'], 'type' => 'INDEX'],
+            ],
+            'foreign_keys' => [],
+            'engine' => 'InnoDB',
+            'charset' => 'utf8',
+            'collate' => 'utf8_general_ci',
+        ];
+    }
+
+    public function sync_kbli_schema()
+    {
+        $tableName = 'ipak_kbli';
+        $tableDef = $this->kbli_schema_definition();
+        $results = [
+            'tables_created' => [], 'tables_existed' => [],
+            'columns_added' => [], 'columns_existed' => [],
+            'indexes_created' => [], 'indexes_existed' => [],
+            'errors' => [],
+        ];
+        if (!$this->db->table_exists($tableName)) {
+            try {
+                $this->db->query($this->build_create_table_sql($tableName, $tableDef));
+                $results['tables_created'][] = $tableName;
+            } catch (Exception $e) {
+                $results['errors'][] = 'Tidak dapat membuat tabel ' . $tableName . ': ' . $e->getMessage();
+                return $results;
+            }
+        } else {
+            $results['tables_existed'][] = $tableName;
+        }
+
+        $existingColumns = $this->get_table_columns($tableName);
+        foreach ($tableDef['columns'] as $columnName => $columnDef) {
+            if (isset($existingColumns[$columnName])) {
+                $results['columns_existed'][] = $tableName . '.' . $columnName;
+                continue;
+            }
+            $columnSql = '`' . $columnName . '` ' . $columnDef['type'];
+            $columnSql .= empty($columnDef['nullable']) ? ' NOT NULL' : ' NULL';
+            if (isset($columnDef['default'])) {
+                $default = $columnDef['default'];
+                if (strpos($default, 'CURRENT_TIMESTAMP') === false && preg_match('/^(INT|TINYINT|DECIMAL|FLOAT)/i', $columnDef['type'])) {
+                    $columnSql .= ' DEFAULT ' . $default;
+                } elseif (strpos($default, 'CURRENT_TIMESTAMP') !== false) {
+                    $columnSql .= ' DEFAULT ' . $default;
+                } else {
+                    $columnSql .= " DEFAULT '" . $this->db->escape_str($default) . "'";
+                }
+            }
+            if (!empty($columnDef['auto_increment'])) $columnSql .= ' AUTO_INCREMENT';
+            if (!empty($columnDef['primary'])) $columnSql .= ' PRIMARY KEY';
+            try {
+                $this->db->query('ALTER TABLE `' . $tableName . '` ADD COLUMN ' . $columnSql);
+                $results['columns_added'][] = $tableName . '.' . $columnName;
+            } catch (Exception $e) {
+                $results['errors'][] = 'Tidak dapat menambahkan kolom ' . $tableName . '.' . $columnName . ': ' . $e->getMessage();
+            }
+        }
+
+        $existingIndexes = $this->get_table_indexes($tableName);
+        foreach ($tableDef['indexes'] as $indexName => $indexDef) {
+            $found = false;
+            foreach ($existingIndexes as $existingIndex) {
+                if ($existingIndex['Key_name'] === $indexName) {
+                    $found = true;
+                    break;
+                }
+            }
+            if ($found) {
+                $results['indexes_existed'][] = $tableName . '.' . $indexName;
+                continue;
+            }
+            try {
+                if ($indexDef['type'] === 'PRIMARY') {
+                    $this->db->query('ALTER TABLE `' . $tableName . '` ADD PRIMARY KEY (`' . implode('`, `', $indexDef['columns']) . '`)');
+                } else {
+                    $this->db->query($this->build_create_index_sql($tableName, $indexName, $indexDef));
+                }
+                $results['indexes_created'][] = $tableName . '.' . $indexName;
+            } catch (Exception $e) {
+                $results['errors'][] = 'Tidak dapat membuat index ' . $tableName . '.' . $indexName . ': ' . $e->getMessage();
+            }
+        }
+        return $results;
+    }
+
+    public function get_kbli_rows($search = '', $limit = 50, $offset = 0)
+    {
+        if ($search !== '') {
+            $this->db->group_start()
+                ->like('kode_gabungan', $search)
+                ->or_like('kategori', $search)
+                ->or_like('kode', $search)
+                ->or_like('sektor_bps', $search)
+                ->or_like('judul', $search)
+                ->or_like('deskripsi', $search)
+                ->or_like('hirarki', $search)
+                ->group_end();
+        }
+        return $this->db
+            ->order_by('kode_gabungan', 'ASC')
+            ->limit(max(1, (int) $limit), max(0, (int) $offset))
+            ->get('ipak_kbli')
+            ->result_array();
+    }
+
+    public function count_kbli_rows($search = '')
+    {
+        if ($search !== '') {
+            $this->db->group_start()
+                ->like('kode_gabungan', $search)
+                ->or_like('kategori', $search)
+                ->or_like('kode', $search)
+                ->or_like('sektor_bps', $search)
+                ->or_like('judul', $search)
+                ->or_like('deskripsi', $search)
+                ->or_like('hirarki', $search)
+                ->group_end();
+        }
+        return (int) $this->db->count_all_results('ipak_kbli');
+    }
+
+    public function get_kbli_by_id($id)
+    {
+        return $this->db
+            ->where('id', (int) $id)
+            ->limit(1)
+            ->get('ipak_kbli')
+            ->row_array();
+    }
+
+    public function kbli_display_columns()
+    {
+        return [
+            'kode_gabungan' => 'Kode Gabungan',
+            'kategori' => 'Kategori',
+            'kode' => 'Kode',
+            'sektor_bps' => 'Sektor BPS',
+            'judul' => 'Judul',
+            'deskripsi' => 'Deskripsi',
+            'digit' => 'Digit',
+            'hirarki' => 'Hirarki',
+        ];
+    }
+
+    public function kbli_option_label(array $row, array $configuration)
+    {
+        $availableColumns = $this->kbli_display_columns();
+        $codeField = isset($configuration['code_field']) && in_array($configuration['code_field'], ['kode', 'kode_gabungan'], true)
+            ? $configuration['code_field']
+            : 'kode_gabungan';
+        $selectedColumns = isset($configuration['display_columns']) && is_array($configuration['display_columns'])
+            ? $configuration['display_columns']
+            : [];
+        $selectedColumns = array_values(array_intersect(array_keys($availableColumns), $selectedColumns));
+        $columns = array_values(array_unique(array_merge([$codeField], $selectedColumns)));
+        $parts = [];
+        foreach ($columns as $column) {
+            if (!isset($row[$column]) || trim((string) $row[$column]) === '') {
+                continue;
+            }
+            $parts[] = $availableColumns[$column] . ': ' . trim((string) $row[$column]);
+        }
+        return implode(' · ', $parts);
+    }
+
+    public function get_kbli_field_options(array $configuration)
+    {
+        if (!$this->db->table_exists('ipak_kbli')) {
+            return [];
+        }
+        $rows = $this->db
+            ->order_by('kode_gabungan', 'ASC')
+            ->get('ipak_kbli')
+            ->result_array();
+        $options = [];
+        foreach ($rows as $row) {
+            $options[(string) $row['id']] = $this->kbli_option_label($row, $configuration);
+        }
+        return $options;
+    }
+
+    public function kbli_code_exists($code, $excludeId = 0)
+    {
+        $this->db->where('kode_gabungan', trim((string) $code));
+        if ((int) $excludeId > 0) {
+            $this->db->where('id !=', (int) $excludeId);
+        }
+        return $this->db->count_all_results('ipak_kbli') > 0;
+    }
+
+    public function save_kbli(array $row)
+    {
+        $id = isset($row['id']) ? (int) $row['id'] : 0;
+        unset($row['id']);
+        $row['updated_at'] = date('Y-m-d H:i:s');
+        if ($id > 0) {
+            return $this->db->where('id', $id)->update('ipak_kbli', $row) ? $id : false;
+        }
+        $row['created_at'] = $row['updated_at'];
+        return $this->db->insert('ipak_kbli', $row) ? (int) $this->db->insert_id() : false;
+    }
+
+    public function delete_kbli($id)
+    {
+        return $this->db->where('id', (int) $id)->delete('ipak_kbli');
+    }
+
+    public function import_kbli(array $rows, $replaceExisting)
+    {
+        if (!$rows) {
+            return false;
+        }
+        $this->db->trans_begin();
+        if ($replaceExisting) {
+            $this->db->empty_table('ipak_kbli');
+        }
+        $now = date('Y-m-d H:i:s');
+        foreach ($rows as $row) {
+            $row['updated_at'] = $now;
+            $existing = $this->db
+                ->select('id')
+                ->where('kode_gabungan', $row['kode_gabungan'])
+                ->limit(1)
+                ->get('ipak_kbli')
+                ->row_array();
+            if ($existing) {
+                $this->db->where('id', (int) $existing['id'])->update('ipak_kbli', $row);
+            } else {
+                $row['created_at'] = $now;
+                $this->db->insert('ipak_kbli', $row);
+            }
+            if ($this->db->trans_status() === false) {
+                $this->db->trans_rollback();
+                return false;
+            }
+        }
+        if ($this->db->trans_status() === false) {
+            $this->db->trans_rollback();
+            return false;
+        }
+        $this->db->trans_commit();
+        return true;
+    }
+
     public function create_response(array $input)
     {
         $defaults = [
@@ -544,6 +810,107 @@ class Ipaksurvey_model extends CI_Model
             ->update('skm_cms_user', ['last_login' => date('Y-m-d H:i:s')]);
     }
 
+    public function get_admin_users()
+    {
+        return $this->db
+            ->select('u.*,COALESCE(r.role_name, "admin") AS role_name,r.is_system', false)
+            ->from('skm_cms_user u')
+            ->join('ipak_admin_roles r', 'r.user_id = u.id', 'left')
+            ->order_by('u.id', 'ASC')
+            ->get()
+            ->result_array();
+    }
+
+    public function get_admin_by_id($id)
+    {
+        return $this->db
+            ->select('u.*,COALESCE(r.role_name, "admin") AS role_name,r.is_system', false)
+            ->from('skm_cms_user u')
+            ->join('ipak_admin_roles r', 'r.user_id = u.id', 'left')
+            ->where('u.id', (int) $id)
+            ->limit(1)
+            ->get()
+            ->row_array();
+    }
+
+    public function save_admin($data)
+    {
+        $id = isset($data['id']) ? (int) $data['id'] : 0;
+        $roleName = isset($data['role_name']) ? $data['role_name'] : null;
+        unset($data['id'], $data['role_name']);
+        if (isset($data['password']) && $data['password'] !== '') {
+            $data['password'] = password_hash($data['password'], PASSWORD_BCRYPT);
+        } else {
+            unset($data['password']);
+        }
+        if ($id > 0) {
+            $this->db->where('id', $id)->update('skm_cms_user', $data);
+        } else {
+            $this->db->insert('skm_cms_user', $data);
+            $id = (int) $this->db->insert_id();
+        }
+        if ($roleName !== null) {
+            $existingRole = $this->db
+                ->select('user_id')
+                ->from('ipak_admin_roles')
+                ->where('user_id', $id)
+                ->limit(1)
+                ->get()
+                ->row_array();
+            $roleData = [
+                'user_id' => $id,
+                'role_name' => $roleName,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ];
+            if ($existingRole) {
+                $this->db->where('user_id', $id)->update('ipak_admin_roles', $roleData);
+            } else {
+                $roleData['created_at'] = date('Y-m-d H:i:s');
+                $this->db->insert('ipak_admin_roles', $roleData);
+            }
+        }
+        return $id;
+    }
+
+    public function change_admin_password($id, $newPassword)
+    {
+        $hashed = password_hash($newPassword, PASSWORD_BCRYPT);
+        return $this->db
+            ->where('id', (int) $id)
+            ->update('skm_cms_user', ['password' => $hashed]);
+    }
+
+    public function delete_admin($id)
+    {
+        return $this->db
+            ->where('id', (int) $id)
+            ->delete('skm_cms_user');
+    }
+
+    public function admin_exists($id)
+    {
+        return $this->db
+            ->where('id', (int) $id)
+            ->count_all_results('skm_cms_user') > 0;
+    }
+
+    public function admin_username_exists($username, $excludeId = 0)
+    {
+        $this->db->where('username', $username);
+        if ($excludeId > 0) {
+            $this->db->where('id !=', (int) $excludeId);
+        }
+        return $this->db->count_all_results('skm_cms_user') > 0;
+    }
+
+    public function get_admin_roles()
+    {
+        return [
+            'superadmin' => 'Super Admin',
+            'admin' => 'Administrator',
+        ];
+    }
+
     public function get_surveys($activeOnly = false)
     {
         $this->db
@@ -613,6 +980,23 @@ class Ipaksurvey_model extends CI_Model
         return $row ? $this->is_legacy_skm_survey_definition($row) : false;
     }
 
+    public function get_survey_by_id($surveyId)
+    {
+        $survey = $this->db
+            ->where('id', (int) $surveyId)
+            ->limit(1)
+            ->get('ipak_surveys')
+            ->row_array();
+        if (!$survey) {
+            return false;
+        }
+        $survey['id'] = (int) $survey['id'];
+        $survey['is_active'] = isset($survey['is_active']) ? (int) $survey['is_active'] : 0;
+        $survey['is_system_locked'] = isset($survey['is_system_locked']) ? (int) $survey['is_system_locked'] : 0;
+        $survey['is_mandatory'] = isset($survey['is_mandatory']) ? (int) $survey['is_mandatory'] : 0;
+        return $survey;
+    }
+
     public function get_forms($activeOnly = false)
     {
         $this->db
@@ -638,6 +1022,31 @@ class Ipaksurvey_model extends CI_Model
             $rows[$index]['survey_count'] = (int) $row['survey_count'];
         }
         return $rows;
+    }
+
+    public function get_form_by_id($formId)
+    {
+        $form = $this->db
+            ->select('f.*,COUNT(DISTINCT fs.survey_id) AS survey_count', false)
+            ->from('ipak_forms f')
+            ->join('ipak_form_surveys fs', 'fs.form_id = f.id', 'left')
+            ->where('f.id', (int) $formId)
+            ->group_by('f.id')
+            ->limit(1)
+            ->get()
+            ->row_array();
+        if (!$form) {
+            return false;
+        }
+        $form['id'] = (int) $form['id'];
+        $form['is_default'] = (int) $form['is_default'];
+        $form['is_active'] = (int) $form['is_active'];
+        $form['is_public_listed'] = isset($form['is_public_listed'])
+            ? (int) $form['is_public_listed']
+            : 1;
+        $form['survey_count'] = (int) $form['survey_count'];
+        $form['survey_ids'] = $this->get_form_survey_ids((int) $form['id']);
+        return $form;
     }
 
     public function get_public_forms($search = '', $type = 'all', $limit = 9, $offset = 0)
@@ -796,6 +1205,13 @@ class Ipaksurvey_model extends CI_Model
                 'field_group' => 'identity',
                 'field_type' => 'select',
             ],
+            'kbli' => [
+                'label' => 'Layanan KBLI',
+                'help_text' => 'Pilih kegiatan usaha berdasarkan katalog KBLI.',
+                'sort_order' => 100,
+                'field_group' => 'identity',
+                'field_type' => 'select',
+            ],
         ];
     }
 
@@ -890,11 +1306,39 @@ class Ipaksurvey_model extends CI_Model
             if (empty($current['help_text']) && !empty($field['help_text'])) {
                 $current['help_text'] = $field['help_text'];
             }
+            $fieldHasKbliSource = !empty($field['options']['source']) && $field['options']['source'] === 'ipak_kbli';
+            $currentHasKbliSource = !empty($current['options']['source']) && $current['options']['source'] === 'ipak_kbli';
+            if ($fieldHasKbliSource || $currentHasKbliSource) {
+                if ($fieldHasKbliSource && !$currentHasKbliSource) {
+                    $current['options'] = $field['options'];
+                    $current['field_options'] = json_encode($current['options'], JSON_UNESCAPED_SLASHES);
+                } elseif ($fieldHasKbliSource && $currentHasKbliSource) {
+                    $current['options']['display_columns'] = array_values(array_unique(array_merge(
+                        isset($current['options']['display_columns']) ? $current['options']['display_columns'] : [],
+                        isset($field['options']['display_columns']) ? $field['options']['display_columns'] : []
+                    )));
+                    $current['field_options'] = json_encode($current['options'], JSON_UNESCAPED_SLASHES);
+                }
+                $baseFields[$targetKey] = $current;
+                continue;
+            }
             if (!empty($field['options'])) {
                 $currentOptions = !empty($current['options']) && is_array($current['options'])
                     ? $current['options']
                     : [];
-                $current['options'] = array_values(array_unique(array_merge($currentOptions, $field['options'])));
+                $mergedOptions = [];
+                $seenOptionValues = [];
+                foreach (array_merge($currentOptions, $field['options']) as $option) {
+                    $optionValue = is_array($option) && isset($option['value'])
+                        ? (string) $option['value']
+                        : (string) $option;
+                    if (isset($seenOptionValues[$optionValue])) {
+                        continue;
+                    }
+                    $seenOptionValues[$optionValue] = true;
+                    $mergedOptions[] = $option;
+                }
+                $current['options'] = $mergedOptions;
                 $current['field_options'] = json_encode($current['options'], JSON_UNESCAPED_SLASHES);
             }
             $baseFields[$targetKey] = $current;
@@ -910,20 +1354,23 @@ class Ipaksurvey_model extends CI_Model
             $surveyIds = $this->get_form_survey_ids($formId);
         }
         $surveyIds = array_values(array_filter(array_unique(array_map('intval', $surveyIds))));
-        if (count($surveyIds) < 2) {
-            return $result;
-        }
-
-        $standaloneForms = $this->get_standalone_forms_by_survey(false);
-        foreach ($surveyIds as $surveyId) {
-            if (
-                !isset($standaloneForms[$surveyId])
-                || (int) $standaloneForms[$surveyId]['form_id'] === $formId
-            ) {
-                continue;
+        if (count($surveyIds) >= 2) {
+            $standaloneForms = $this->get_standalone_forms_by_survey(false);
+            foreach ($surveyIds as $surveyId) {
+                if (
+                    !isset($standaloneForms[$surveyId])
+                    || (int) $standaloneForms[$surveyId]['form_id'] === $formId
+                ) {
+                    continue;
+                }
+                $sourceFields = $this->get_form_fields((int) $standaloneForms[$surveyId]['form_id']);
+                $result = $this->merge_respondent_field_rows($result, $sourceFields);
             }
-            $sourceFields = $this->get_form_fields((int) $standaloneForms[$surveyId]['form_id']);
-            $result = $this->merge_respondent_field_rows($result, $sourceFields);
+        }
+        foreach ($result as $fieldKey => $field) {
+            if (!empty($field['options']['source']) && $field['options']['source'] === 'ipak_kbli') {
+                $result[$fieldKey]['kbli_options'] = $this->get_kbli_field_options($field['options']);
+            }
         }
         return $result;
     }
@@ -1012,7 +1459,9 @@ class Ipaksurvey_model extends CI_Model
             if (!in_array($fieldType, $allowedTypes, true)) {
                 $fieldType = $default['field_type'];
             }
-            $options = isset($setting['options']) ? $setting['options'] : [];
+            $options = isset($setting['options'])
+                ? $setting['options']
+                : (isset($existing[$key]['options']) ? $existing[$key]['options'] : []);
             if (is_string($options)) {
                 $options = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n|,/', $options))));
             }
@@ -1024,7 +1473,10 @@ class Ipaksurvey_model extends CI_Model
                 'field_key' => $key,
                 'field_group' => $fieldGroup,
                 'field_type' => $fieldType,
-                'field_options' => $options ? json_encode(array_values($options), JSON_UNESCAPED_SLASHES) : null,
+                'field_options' => $options ? json_encode(
+                    !empty($isSystem) && $key === 'kbli' ? $options : array_values($options),
+                    JSON_UNESCAPED_SLASHES
+                ) : null,
                 'field_label' => substr($label, 0, 100),
                 'field_mode' => $mode,
                 'help_text' => substr($helpText, 0, 255),
@@ -1559,6 +2011,16 @@ class Ipaksurvey_model extends CI_Model
                 ->get('ipak_surveys')
                 ->row_array();
         }
+        $existingQuestionLinks = [];
+        if ($surveyId > 0) {
+            $links = $this->db
+                ->where('survey_id', $surveyId)
+                ->get('ipak_survey_questions')
+                ->result_array();
+            foreach ($links as $link) {
+                $existingQuestionLinks[(int) $link['question_id']] = $link;
+            }
+        }
         $isSystemLocked = !empty($existingSurvey['is_system_locked']);
         $data = [
             'survey_code' => $isSystemLocked
@@ -1597,17 +2059,30 @@ class Ipaksurvey_model extends CI_Model
                 ]);
             }
         }
-        $this->db->where('survey_id', $surveyId)->delete('ipak_survey_questions');
-        $sortOrder = 0;
+        $selectedIds = array_fill_keys($questionIds, true);
+        $removedIds = array_diff(array_keys($existingQuestionLinks), array_keys($selectedIds));
+        if ($removedIds) {
+            $this->db
+                ->where('survey_id', $surveyId)
+                ->where_in('question_id', $removedIds)
+                ->delete('ipak_survey_questions');
+        }
+        $nextSortOrder = 0;
+        foreach ($existingQuestionLinks as $link) {
+            $nextSortOrder = max($nextSortOrder, (int) $link['sort_order']);
+        }
         foreach ($questionIds as $questionId) {
             if ($questionId < 1) {
                 continue;
             }
-            $sortOrder++;
+            if (isset($existingQuestionLinks[$questionId])) {
+                continue;
+            }
+            $nextSortOrder++;
             $this->db->insert('ipak_survey_questions', [
                 'survey_id' => $surveyId,
                 'question_id' => $questionId,
-                'sort_order' => $sortOrder,
+                'sort_order' => $nextSortOrder,
                 'weight_override' => null,
                 'is_required' => 1,
             ]);
@@ -1915,7 +2390,7 @@ class Ipaksurvey_model extends CI_Model
     public function get_response_fields($responseId, $responseSource = 'SKM')
     {
         $identity = $this->parse_response_key($responseId, $responseSource);
-        return $this->db
+        $rows = $this->db
             ->where(
                 $identity['source'] === 'SURVEY' ? 'flex_response_id' : 'skm_data_id',
                 $identity['id']
@@ -1924,6 +2399,20 @@ class Ipaksurvey_model extends CI_Model
             ->order_by('id', 'ASC')
             ->get('ipak_response_fields')
             ->result_array();
+        foreach ($rows as $index => $row) {
+            if ($row['field_key'] !== 'kbli') {
+                continue;
+            }
+            $snapshot = json_decode((string) $row['field_value'], true);
+            if (!is_array($snapshot) || !isset($snapshot['kbli_id'])) {
+                continue;
+            }
+            $rows[$index]['kbli_id'] = (int) $snapshot['kbli_id'];
+            $rows[$index]['kbli_kode'] = isset($snapshot['kode']) ? (string) $snapshot['kode'] : '';
+            $rows[$index]['kbli_kode_gabungan'] = isset($snapshot['kode_gabungan']) ? (string) $snapshot['kode_gabungan'] : '';
+            $rows[$index]['field_value'] = isset($snapshot['display_value']) ? (string) $snapshot['display_value'] : '';
+        }
+        return $rows;
     }
 
     private function apply_filters(array $filters, $alias = '')
@@ -2853,7 +3342,9 @@ class Ipaksurvey_model extends CI_Model
     {
         $this->load->library('schema_definition');
         $requiredSchema = $this->schema_definition->get_required_schema();
+        $requiredSchema['ipak_kbli'] = $this->kbli_schema_definition();
         $dbName = $this->db->database;
+        $databaseForeignKeys = $this->get_database_foreign_keys();
 
         $results = [
             'tables_created' => [],
@@ -2864,6 +3355,7 @@ class Ipaksurvey_model extends CI_Model
             'indexes_existed' => [],
             'foreign_keys_created' => [],
             'foreign_keys_existed' => [],
+            'foreign_keys_skipped' => [],
             'errors' => [],
         ];
 
@@ -2932,17 +3424,39 @@ class Ipaksurvey_model extends CI_Model
                 $requiredFks = isset($tableDef['foreign_keys']) ? $tableDef['foreign_keys'] : [];
 
                 foreach ($requiredFks as $fkName => $fkDef) {
-                    $fkExists = isset($existingFks[$fkName]);
-                    if (!$fkExists) {
-                        $fkSql = $this->build_add_foreign_key_sql($tableName, $fkName, $fkDef);
+                    $equivalentForeignKey = $this->find_equivalent_foreign_key($tableName, $fkDef, $databaseForeignKeys);
+                    if ($equivalentForeignKey) {
+                        $results['foreign_keys_existed'][] = "{$tableName}.{$equivalentForeignKey['CONSTRAINT_NAME']}";
+                        continue;
+                    }
+
+                    $orphanInfo = $this->get_foreign_key_orphan_info($tableName, $fkDef);
+                    if ($orphanInfo['count'] > 0) {
+                        $orphanDescription = "Skipped foreign key {$tableName}.{$fkName}: found {$orphanInfo['count']} orphan child row(s)";
+                        if ($orphanInfo['examples']) {
+                            $orphanDescription .= ' with value(s) ' . implode(', ', $orphanInfo['examples']);
+                        }
+                        $orphanDescription .= '. Resolve these rows without deleting required response history, then run synchronization again.';
+                        $results['foreign_keys_skipped'][] = $orphanDescription;
+                        $results['errors'][] = $orphanDescription;
+                        continue;
+                    }
+
+                    $actualFkName = $fkName;
+                    if (isset($databaseForeignKeys[$actualFkName])) {
+                        $actualFkName = $this->unique_foreign_key_name($tableName, $fkName, $fkDef, $databaseForeignKeys);
+                    }
+                    if (!isset($existingFks[$actualFkName])) {
+                        $fkSql = $this->build_add_foreign_key_sql($tableName, $actualFkName, $fkDef);
                         try {
                             $this->db->query($fkSql);
-                            $results['foreign_keys_created'][] = "{$tableName}.{$fkName}";
+                            $results['foreign_keys_created'][] = "{$tableName}.{$actualFkName}";
+                            $databaseForeignKeys[$actualFkName] = ['TABLE_NAME' => $tableName];
                         } catch (Exception $e) {
-                            $results['errors'][] = "Failed to add foreign key {$tableName}.{$fkName}: " . $e->getMessage();
+                            $results['errors'][] = "Failed to add foreign key {$tableName}.{$actualFkName}: " . $e->getMessage();
                         }
                     } else {
-                        $results['foreign_keys_existed'][] = "{$tableName}.{$fkName}";
+                        $results['foreign_keys_existed'][] = "{$tableName}.{$actualFkName}";
                     }
                 }
             }
@@ -2990,6 +3504,84 @@ class Ipaksurvey_model extends CI_Model
             $fks[$row['CONSTRAINT_NAME']] = $row;
         }
         return $fks;
+    }
+
+    private function get_database_foreign_keys()
+    {
+        $query = $this->db->query("
+            SELECT CONSTRAINT_NAME, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = ? AND REFERENCED_TABLE_NAME IS NOT NULL
+        ", [$this->db->database]);
+        $foreignKeys = [];
+        foreach ($query->result_array() as $row) {
+            $foreignKeys[$row['CONSTRAINT_NAME']] = $row;
+        }
+        return $foreignKeys;
+    }
+
+    private function find_equivalent_foreign_key($tableName, array $definition, array $databaseForeignKeys)
+    {
+        $column = isset($definition['columns'][0]) ? $definition['columns'][0] : '';
+        $referencedColumn = isset($definition['ref_columns'][0]) ? $definition['ref_columns'][0] : '';
+        foreach ($databaseForeignKeys as $foreignKey) {
+            if (
+                $foreignKey['TABLE_NAME'] === $tableName
+                && $foreignKey['COLUMN_NAME'] === $column
+                && $foreignKey['REFERENCED_TABLE_NAME'] === $definition['ref_table']
+                && $foreignKey['REFERENCED_COLUMN_NAME'] === $referencedColumn
+            ) {
+                return $foreignKey;
+            }
+        }
+        return false;
+    }
+
+    private function get_foreign_key_orphan_info($tableName, array $definition)
+    {
+        $column = isset($definition['columns'][0]) ? $definition['columns'][0] : '';
+        $referencedColumn = isset($definition['ref_columns'][0]) ? $definition['ref_columns'][0] : '';
+        $referencedTable = isset($definition['ref_table']) ? $definition['ref_table'] : '';
+        if ($column === '' || $referencedColumn === '' || $referencedTable === '') {
+            return ['count' => 0, 'examples' => []];
+        }
+        if (!$this->db->table_exists($tableName) || !$this->db->table_exists($referencedTable)) {
+            return ['count' => 0, 'examples' => []];
+        }
+        $child = '`' . $tableName . '`';
+        $parent = '`' . $referencedTable . '`';
+        $childColumn = '`' . $column . '`';
+        $parentColumn = '`' . $referencedColumn . '`';
+        $where = "c.{$childColumn} IS NOT NULL AND p.{$parentColumn} IS NULL";
+        $countRow = $this->db->query(
+            "SELECT COUNT(*) AS orphan_count FROM {$child} c LEFT JOIN {$parent} p ON c.{$childColumn} = p.{$parentColumn} WHERE {$where}"
+        )->row_array();
+        $count = $countRow ? (int) $countRow['orphan_count'] : 0;
+        if (!$count) {
+            return ['count' => 0, 'examples' => []];
+        }
+        $exampleRows = $this->db->query(
+            "SELECT DISTINCT c.{$childColumn} AS orphan_value FROM {$child} c LEFT JOIN {$parent} p ON c.{$childColumn} = p.{$parentColumn} WHERE {$where} LIMIT 5"
+        )->result_array();
+        $examples = [];
+        foreach ($exampleRows as $row) {
+            $examples[] = (string) $row['orphan_value'];
+        }
+        return ['count' => $count, 'examples' => $examples];
+    }
+
+    private function unique_foreign_key_name($tableName, $baseName, array $definition, array $databaseForeignKeys)
+    {
+        $signature = $tableName . '|' . implode(',', $definition['columns']) . '|'
+            . $definition['ref_table'] . '|' . implode(',', $definition['ref_columns']);
+        $suffix = '_' . substr(sha1($signature), 0, 10);
+        $candidate = substr($baseName, 0, 64 - strlen($suffix)) . $suffix;
+        $counter = 1;
+        while (isset($databaseForeignKeys[$candidate])) {
+            $counterSuffix = '_' . $counter++;
+            $candidate = substr($baseName, 0, 64 - strlen($suffix) - strlen($counterSuffix)) . $suffix . $counterSuffix;
+        }
+        return $candidate;
     }
 
     private function build_create_table_sql($tableName, $tableDef)
@@ -3089,7 +3681,7 @@ class Ipaksurvey_model extends CI_Model
             $colSql .= ' AUTO_INCREMENT';
         }
 
-        return "ALTER TABLE `{$tableName}` ADD COLUMN IF NOT EXISTS {$colSql};";
+        return "ALTER TABLE `{$tableName}` ADD COLUMN {$colSql};";
     }
 
     private function build_create_index_sql($tableName, $idxName, $idxDef)

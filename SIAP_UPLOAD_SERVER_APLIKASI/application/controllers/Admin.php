@@ -612,10 +612,13 @@ class Admin extends CI_Controller
         $surveys = $this->ipak->get_surveys(false);
         foreach ($surveys as $surveyId => $survey) {
             $surveys[$surveyId]['question_ids'] = $this->ipak->get_survey_question_ids($surveyId);
+            $this->ipak->ensure_standalone_form((int) $surveyId);
         }
+        $primaryForms = $this->ipak->get_standalone_forms_by_survey(false);
         $this->render('admin/surveys', [
-            'page_title' => 'Pengaturan Survei Lanjutan',
+            'page_title' => 'Survei',
             'surveys' => $surveys,
+            'primary_forms' => $primaryForms,
             'questions' => $this->ipak->get_questions(false),
             'question_assignments' => $this->ipak->get_question_assignments(),
             'survey_success' => $this->session->flashdata('survey_success'),
@@ -657,6 +660,7 @@ class Admin extends CI_Controller
             $existingSurveyIds = $formId > 0 ? $this->ipak->get_form_survey_ids($formId) : [];
             $isCombinedPackage = $isNewCombinedPackage
                 || ($primarySurveyId < 1 && count($existingSurveyIds) > 1);
+            $returnType = $isCombinedPackage ? 'combined' : 'primary';
             $form = [
                 'id' => $formId,
                 'form_code' => strtoupper(trim((string) $this->input->post('form_code', true))),
@@ -746,7 +750,7 @@ class Admin extends CI_Controller
                         ? 'Paket survei gabungan dan shortcut publik berhasil disimpan.'
                         : 'Form utama, data responden, dan shortcut publik berhasil disimpan.')
             );
-            return redirect('admin/forms');
+            return redirect('admin/forms?type=' . $returnType);
         }
 
         $forms = $this->ipak->get_forms(false);
@@ -791,7 +795,6 @@ class Admin extends CI_Controller
         }
 
         $primaryForms = [];
-        $primaryFormBySurvey = [];
         $primaryFormShortcuts = [];
         foreach ($surveys as $surveyId => $survey) {
             if (empty($standaloneForms[$surveyId])) {
@@ -802,40 +805,24 @@ class Admin extends CI_Controller
                 continue;
             }
             $primaryForms[] = $formsById[$formId];
-            $primaryFormBySurvey[$surveyId] = $formsById[$formId];
             if ((int) $formsById[$formId]['is_active'] === 1) {
                 $primaryFormShortcuts[] = $formsById[$formId];
             }
         }
 
-        $surveyFormUsage = [];
-        foreach ($surveys as $surveyId => $survey) {
-            $surveyFormUsage[$surveyId] = [
-                'combined_total' => 0,
-                'combined_active' => 0,
-                'combined_codes' => [],
-            ];
-        }
-        foreach ($combinedForms as $form) {
-            foreach ($form['survey_ids'] as $surveyId) {
-                if (!isset($surveyFormUsage[$surveyId])) {
-                    continue;
-                }
-                $surveyFormUsage[$surveyId]['combined_total']++;
-                if ((int) $form['is_active'] === 1) {
-                    $surveyFormUsage[$surveyId]['combined_active']++;
-                }
-                $surveyFormUsage[$surveyId]['combined_codes'][] = $form['form_code'];
-            }
+        $formType = strtolower(trim((string) $this->input->get('type', true)));
+        if (!in_array($formType, ['primary', 'combined', 'shortcuts'], true)) {
+            $formType = 'primary';
         }
 
         $this->render('admin/forms', [
-            'page_title' => 'Survei, Form & Shortcut',
+            'page_title' => $formType === 'combined'
+                ? 'Form Gabungan'
+                : ($formType === 'shortcuts' ? 'Shortcut Publik' : 'Form Utama'),
+            'form_type' => $formType,
             'forms' => $forms,
             'surveys' => $surveys,
-            'survey_form_usage' => $surveyFormUsage,
             'primary_forms' => $primaryForms,
-            'primary_form_by_survey' => $primaryFormBySurvey,
             'primary_form_shortcuts' => $primaryFormShortcuts,
             'combined_forms' => $combinedForms,
             'combined_form_shortcuts' => $combinedFormShortcuts,
@@ -850,6 +837,11 @@ class Admin extends CI_Controller
     {
         $this->require_login();
         $this->require_superadmin();
+        $kbliSchema = $this->ipak->sync_kbli_schema();
+        if (!empty($kbliSchema['errors'])) {
+            $this->session->set_flashdata('wizard_error', 'Struktur KBLI belum siap: ' . implode(' ', $kbliSchema['errors']));
+            return redirect('admin/forms');
+        }
         $fieldDefinitions = $this->ipak->respondent_field_definitions();
 
         if (strtoupper($this->input->method()) === 'POST') {
@@ -912,8 +904,8 @@ class Admin extends CI_Controller
                 110
             );
             foreach ($initialCustom as $fieldKey => $setting) {
-                if ($setting['type'] === 'select' && empty($setting['options'])) {
-                    $errors[] = 'Input awal "' . $setting['label'] . '" memerlukan minimal satu pilihan.';
+                if ($setting['type'] === 'select' && count($setting['options']) < 2) {
+                    $errors[] = 'Input awal "' . $setting['label'] . '" memerlukan minimal dua pilihan dengan value angka.';
                 }
                 $fieldSettings[$fieldKey] = $setting;
                 $initialCount++;
@@ -924,13 +916,55 @@ class Admin extends CI_Controller
 
             $identityInput = $this->input->post('identity_fields', true);
             $identityInput = is_array($identityInput) ? $identityInput : [];
-            foreach (['name', 'address', 'gender', 'age', 'education', 'job', 'service'] as $fieldKey) {
+            foreach (['name', 'address', 'gender', 'age', 'education', 'job', 'service', 'kbli'] as $fieldKey) {
                 $mode = isset($identityInput[$fieldKey]) ? trim((string) $identityInput[$fieldKey]) : 'hidden';
                 if (!in_array($mode, ['hidden', 'optional', 'required'], true)) {
                     $mode = 'hidden';
                 }
                 $fieldSettings[$fieldKey]['mode'] = $mode;
                 $fieldSettings[$fieldKey]['group'] = 'identity';
+            }
+            $kbliInput = $this->input->post('identity_kbli', true);
+            $kbliInput = is_array($kbliInput) ? $kbliInput : [];
+            if ($fieldSettings['kbli']['mode'] !== 'hidden') {
+                $codeField = isset($kbliInput['code_field']) ? trim((string) $kbliInput['code_field']) : 'kode_gabungan';
+                $displayColumns = isset($kbliInput['display_columns']) && is_array($kbliInput['display_columns'])
+                    ? array_values(array_unique($kbliInput['display_columns'])) : [];
+                $displayColumns = array_values(array_intersect(array_keys($this->ipak->kbli_display_columns()), $displayColumns));
+                if (!in_array($codeField, ['kode', 'kode_gabungan'], true)) $errors[] = 'Pilih kolom kode KBLI yang valid.';
+                if (!$displayColumns) $errors[] = 'Pilih minimal satu kolom informasi KBLI yang ditampilkan.';
+                $fieldSettings['kbli']['options'] = ['source' => 'ipak_kbli', 'code_field' => $codeField, 'display_columns' => $displayColumns];
+                if ($this->ipak->count_kbli_rows() < 1) $errors[] = 'Katalog KBLI masih kosong. Impor atau tambahkan data KBLI sebelum mengaktifkan field ini.';
+            }
+            $identityOptions = $this->input->post('identity_options', true);
+            $identityOptions = is_array($identityOptions) ? $identityOptions : [];
+            $supportedChoiceValues = [
+                'gender' => [1, 2],
+                'education' => array_map('intval', array_keys($this->config->item('ipak_education'))),
+                'job' => array_map('intval', array_keys($this->config->item('ipak_jobs'))),
+                'service' => array_map('intval', array_keys($this->ipak->sector_options())),
+            ];
+            foreach (['gender', 'education', 'job', 'service'] as $fieldKey) {
+                if ($fieldSettings[$fieldKey]['mode'] === 'hidden') {
+                    continue;
+                }
+                if (empty($identityOptions[$fieldKey]) || !is_array($identityOptions[$fieldKey])) {
+                    continue;
+                }
+                $options = $this->normalize_numeric_choice_options($identityOptions[$fieldKey]);
+                if (count($options) < 2) {
+                    $errors[] = 'Pilihan untuk "' . $fieldDefinitions[$fieldKey]['label'] . '" harus memiliki minimal dua baris dengan value angka.';
+                    continue;
+                }
+                $invalidValues = array_diff(
+                    array_map('intval', array_column($options, 'value')),
+                    $supportedChoiceValues[$fieldKey]
+                );
+                if ($invalidValues) {
+                    $errors[] = 'Value untuk "' . $fieldDefinitions[$fieldKey]['label'] . '" harus memakai kode kategori yang tersedia agar grafik tetap sesuai.';
+                    continue;
+                }
+                $fieldSettings[$fieldKey]['options'] = $options;
             }
             $identityCustom = $this->normalize_custom_fields(
                 $this->input->post('identity_custom', true),
@@ -939,8 +973,8 @@ class Admin extends CI_Controller
                 210
             );
             foreach ($identityCustom as $fieldKey => $setting) {
-                if ($setting['type'] === 'select' && empty($setting['options'])) {
-                    $errors[] = 'Identitas "' . $setting['label'] . '" memerlukan minimal satu pilihan.';
+                if ($setting['type'] === 'select' && count($setting['options']) < 2) {
+                    $errors[] = 'Identitas "' . $setting['label'] . '" memerlukan minimal dua pilihan dengan value angka.';
                 }
                 $fieldSettings[$fieldKey] = $setting;
             }
@@ -1057,6 +1091,19 @@ class Admin extends CI_Controller
         $this->render('admin/form_wizard', [
             'page_title' => 'Buat Form Survei',
             'field_definitions' => $fieldDefinitions,
+            'kbli_display_columns' => $this->ipak->kbli_display_columns(),
+            'choice_options' => [
+                'gender' => [1 => 'Laki-laki', 2 => 'Perempuan'],
+                'education' => $this->config->item('ipak_education'),
+                'job' => $this->config->item('ipak_jobs'),
+                'service' => $this->ipak->sector_options(),
+            ],
+            'choice_options' => [
+                'gender' => [1 => 'Laki-laki', 2 => 'Perempuan'],
+                'education' => $this->config->item('ipak_education'),
+                'job' => $this->config->item('ipak_jobs'),
+                'service' => $this->ipak->sector_options(),
+            ],
             'available_questions' => $questions,
             'wizard_error' => $this->session->flashdata('wizard_error'),
             'old' => $this->session->flashdata('wizard_old') ?: [],
@@ -1259,6 +1306,165 @@ class Admin extends CI_Controller
         exit;
     }
 
+    public function kbli()
+    {
+        $this->require_login();
+        $schemaResult = $this->ipak->sync_kbli_schema();
+        if (!empty($schemaResult['errors'])) show_error('Sinkronisasi struktur KBLI gagal: ' . html_escape(implode(' ', $schemaResult['errors'])), 500, 'Database KBLI');
+        if (strtoupper($this->input->method()) === 'POST') {
+            $this->require_superadmin();
+            $action = trim((string) $this->input->post('action', true));
+            $errors = [];
+            $message = '';
+            if ($action === 'import') {
+                if (!isset($_FILES['kbli_csv']) || !is_uploaded_file($_FILES['kbli_csv']['tmp_name'])) {
+                    $errors[] = 'Pilih file CSV terlebih dahulu.';
+                } elseif ((int) $_FILES['kbli_csv']['error'] !== UPLOAD_ERR_OK || (int) $_FILES['kbli_csv']['size'] > 10 * 1024 * 1024) {
+                    $errors[] = 'File CSV gagal diunggah atau melebihi batas 10 MB.';
+                } else {
+                    list($rows, $errors) = $this->parse_kbli_csv($_FILES['kbli_csv']['tmp_name']);
+                    $replace = $this->input->post('import_mode', true) === 'replace';
+                    if ($replace && $this->input->post('confirm_replace', true) !== '1') $errors[] = 'Konfirmasi penggantian katalog KBLI wajib dicentang.';
+                    if (!$errors && !$this->ipak->import_kbli($rows, $replace)) $errors[] = 'Impor gagal dan perubahan telah dibatalkan.';
+                    if (!$errors) $message = count($rows) . ' baris KBLI berhasil diimpor.';
+                }
+            } elseif ($action === 'create') {
+                $row = $this->parse_kbli_form();
+                $errors = $this->validate_kbli_row($row);
+                if (!$errors && $this->ipak->kbli_code_exists($row['kode_gabungan'])) $errors[] = 'Kode Gabungan sudah ada.';
+                if (!$errors && !$this->ipak->save_kbli($row)) $errors[] = 'Data KBLI belum berhasil disimpan.';
+                if (!$errors) $message = 'Data KBLI berhasil ditambahkan.';
+            } else {
+                $errors[] = 'Aksi KBLI tidak dikenali.';
+            }
+            $this->session->set_flashdata($errors ? 'kbli_error' : 'kbli_success', $errors ? implode(' ', $errors) : $message);
+            if ($errors && $action === 'create') $this->session->set_flashdata('kbli_old', $this->input->post(NULL, true));
+            return redirect('admin/kbli');
+        }
+        $search = trim((string) $this->input->get('q', true));
+        $search = function_exists('mb_substr') ? mb_substr($search, 0, 100) : substr($search, 0, 100);
+        $limit = 50;
+        $total = $this->ipak->count_kbli_rows($search);
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min(max(1, (int) $this->input->get('page', true)), $pages);
+        $this->render('admin/kbli', [
+            'page_title' => 'KBLI', 'rows' => $this->ipak->get_kbli_rows($search, $limit, ($page - 1) * $limit),
+            'search' => $search, 'page' => $page, 'total_pages' => $pages, 'total' => $total,
+            'success' => $this->session->flashdata('kbli_success'), 'error' => $this->session->flashdata('kbli_error'),
+            'old' => $this->session->flashdata('kbli_old') ?: [], 'is_superadmin' => $this->is_superadmin(),
+        ]);
+    }
+
+    public function edit_kbli($id = 0)
+    {
+        $this->require_login();
+        $schemaResult = $this->ipak->sync_kbli_schema();
+        if (!empty($schemaResult['errors'])) show_error('Sinkronisasi struktur KBLI gagal: ' . html_escape(implode(' ', $schemaResult['errors'])), 500, 'Database KBLI');
+        $row = $this->ipak->get_kbli_by_id((int) $id);
+        if (!$row) show_404();
+        if (strtoupper($this->input->method()) === 'POST') {
+            $this->require_superadmin();
+            $row = $this->parse_kbli_form((int) $id);
+            $errors = $this->validate_kbli_row($row);
+            if (!$errors && $this->ipak->kbli_code_exists($row['kode_gabungan'], (int) $id)) $errors[] = 'Kode Gabungan sudah dipakai baris lain.';
+            if (!$errors && !$this->ipak->save_kbli($row)) $errors[] = 'Perubahan belum berhasil disimpan.';
+            $this->session->set_flashdata($errors ? 'kbli_error' : 'kbli_success', $errors ? implode(' ', $errors) : 'Data KBLI berhasil diperbarui.');
+            if ($errors) {
+                $this->session->set_flashdata('kbli_edit_old', $this->input->post(NULL, true));
+                return redirect('admin/kbli/edit/' . (int) $id);
+            }
+            return redirect('admin/kbli');
+        }
+        $this->render('admin/kbli_edit', [
+            'page_title' => 'Ubah Data KBLI', 'row' => $row,
+            'error' => $this->session->flashdata('kbli_error'), 'old' => $this->session->flashdata('kbli_edit_old') ?: [],
+            'is_superadmin' => $this->is_superadmin(),
+        ]);
+    }
+
+    public function delete_kbli($id = 0)
+    {
+        $this->require_login();
+        $this->require_superadmin();
+        $schemaResult = $this->ipak->sync_kbli_schema();
+        if (!empty($schemaResult['errors'])) show_error('Sinkronisasi struktur KBLI gagal: ' . html_escape(implode(' ', $schemaResult['errors'])), 500, 'Database KBLI');
+        if (strtoupper($this->input->method()) !== 'POST') show_error('Metode tidak diizinkan.', 405, 'Akses ditolak');
+        $row = $this->ipak->get_kbli_by_id((int) $id);
+        if (!$row) $this->session->set_flashdata('kbli_error', 'Data KBLI tidak ditemukan.');
+        elseif (!$this->ipak->delete_kbli((int) $id)) $this->session->set_flashdata('kbli_error', 'Data KBLI belum berhasil dihapus.');
+        else $this->session->set_flashdata('kbli_success', 'Data KBLI ' . $row['kode_gabungan'] . ' berhasil dihapus.');
+        return redirect('admin/kbli');
+    }
+
+    private function parse_kbli_form($id = 0)
+    {
+        return [
+            'id' => (int) $id, 'kode_gabungan' => trim((string) $this->input->post('kode_gabungan', true)),
+            'kategori' => trim((string) $this->input->post('kategori', true)), 'kode' => trim((string) $this->input->post('kode', true)),
+            'sektor_bps' => trim((string) $this->input->post('sektor_bps', true)), 'judul' => trim((string) $this->input->post('judul', true)),
+            'deskripsi' => trim((string) $this->input->post('deskripsi', true)), 'digit' => (int) $this->input->post('digit', true),
+            'hirarki' => trim((string) $this->input->post('hirarki', true)),
+        ];
+    }
+
+    private function validate_kbli_row(array $row)
+    {
+        $errors = [];
+        foreach (['kode_gabungan' => 32, 'kategori' => 32, 'kode' => 32, 'sektor_bps' => 255, 'judul' => 255, 'hirarki' => 40] as $field => $max) {
+            if ($row[$field] === '' || strlen($row[$field]) > $max) $errors[] = $field . ' wajib diisi (maksimal ' . $max . ' karakter).';
+        }
+        if (strlen($row['deskripsi']) > 65535) $errors[] = 'Deskripsi terlalu panjang.';
+        if ($row['digit'] < 1 || $row['digit'] > 255) $errors[] = 'Digit harus antara 1 dan 255.';
+        return $errors;
+    }
+
+    private function parse_kbli_csv($path)
+    {
+        $handle = fopen($path, 'rb');
+        if (!$handle) return [[], ['File CSV tidak dapat dibaca.']];
+        $firstLine = fgets($handle);
+        if ($firstLine === false) { fclose($handle); return [[], ['File CSV kosong.']]; }
+        $delimiter = ',';
+        $bestCount = 0;
+        foreach ([',', ';', "\t"] as $candidate) {
+            $count = count(str_getcsv($firstLine, $candidate, '"', '\\'));
+            if ($count > $bestCount) { $delimiter = $candidate; $bestCount = $count; }
+        }
+        rewind($handle);
+        $headers = fgetcsv($handle, 1000000, $delimiter, '"', '\\');
+        if (!$headers) { fclose($handle); return [[], ['Header CSV tidak ditemukan.']]; }
+        $headers[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) $headers[0]);
+        $normalize = function ($value) { return preg_replace('/[^a-z0-9]+/', '', strtolower(trim((string) $value))); };
+        $aliases = ['kode_gabungan' => ['kodegabungan'], 'kategori' => ['kategori'], 'kode' => ['kode'], 'sektor_bps' => ['sektorbps', 'sektor'], 'judul' => ['judul'], 'deskripsi' => ['deskripsi'], 'digit' => ['digit'], 'hirarki' => ['hirarki', 'hierarki']];
+        $indexes = [];
+        foreach ($headers as $index => $header) foreach ($aliases as $field => $names) if (in_array($normalize($header), $names, true)) $indexes[$field] = $index;
+        if (count($indexes) !== count($aliases)) { fclose($handle); return [[], ['Header wajib: Kode Gabungan, Kategori, Kode, Sektor BPS, Judul, Deskripsi, Digit, Hirarki.']]; }
+        $rows = [];
+        $errors = [];
+        $line = 1;
+        while (($values = fgetcsv($handle, 1000000, $delimiter, '"', '\\')) !== false) {
+            $line++;
+            if (count($values) === 1 && trim((string) $values[0]) === '') continue;
+            $row = [];
+            foreach ($indexes as $field => $index) $row[$field] = isset($values[$index]) ? trim((string) $values[$index]) : '';
+            $row['digit'] = ctype_digit($row['digit']) ? (int) $row['digit'] : 0;
+            $rowErrors = $this->validate_kbli_row($row);
+            if ($rowErrors) $errors[] = 'Baris ' . $line . ': ' . implode(' ', $rowErrors);
+            else $rows[] = $row;
+            if (count($errors) >= 20) { $errors[] = 'Validasi dihentikan setelah 20 kesalahan.'; break; }
+        }
+        fclose($handle);
+        if (!$rows && !$errors) $errors[] = 'Tidak ada baris data pada CSV.';
+        if (!$errors) {
+            $seen = [];
+            foreach ($rows as $row) {
+                if (isset($seen[$row['kode_gabungan']])) { $errors[] = 'Kode Gabungan duplikat di dalam file: ' . $row['kode_gabungan']; break; }
+                $seen[$row['kode_gabungan']] = true;
+            }
+        }
+        return [$rows, $errors];
+    }
+
     public function units()
     {
         $this->require_login();
@@ -1379,10 +1585,21 @@ class Admin extends CI_Controller
             }
             $key = substr('custom_' . ($group === 'access' ? 'a' : 'i') . $position . '_' . $slug, 0, 30);
             $optionsInput = isset($field['options']) ? $field['options'] : [];
+            $valueMode = isset($field['value_mode']) && $field['value_mode'] === 'label' ? 'label' : 'numeric';
             if (is_string($optionsInput)) {
-                $optionsInput = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n|,/', $optionsInput))));
+                $labels = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n|,/', $optionsInput))));
+                $optionsInput = [];
+                foreach ($labels as $optionIndex => $optionLabel) {
+                    $optionsInput[] = ['label' => $optionLabel, 'value' => $valueMode === 'label' ? $optionLabel : $optionIndex + 1];
+                }
             }
-            if (!is_array($optionsInput)) {
+            if (is_array($optionsInput)) {
+                if ($valueMode === 'label') {
+                    $optionsInput = $this->normalize_label_choice_options($optionsInput);
+                } else {
+                    $optionsInput = $this->normalize_numeric_choice_options($optionsInput);
+                }
+            } else {
                 $optionsInput = [];
             }
             $result[$key] = [
@@ -1391,11 +1608,61 @@ class Admin extends CI_Controller
                 'help_text' => trim((string) (isset($field['help_text']) ? $field['help_text'] : '')),
                 'group' => $group,
                 'type' => $type,
+                'value_mode' => $valueMode,
                 'options' => $optionsInput,
                 'sort_order' => $startOrder + $position,
             ];
         }
         return $result;
+    }
+
+    private function normalize_label_choice_options(array $input)
+    {
+        $options = [];
+        $seenLabels = [];
+        foreach ($input as $option) {
+            if (!is_array($option)) {
+                continue;
+            }
+            $label = trim((string) (isset($option['label']) ? $option['label'] : ''));
+            if ($label === '') {
+                continue;
+            }
+            $label = substr($label, 0, 100);
+            $signature = strtolower($label);
+            if (isset($seenLabels[$signature])) {
+                continue;
+            }
+            $seenLabels[$signature] = true;
+            $options[] = ['label' => $label, 'value' => $label];
+        }
+        return $options;
+    }
+
+    private function normalize_numeric_choice_options(array $input)
+    {
+        $options = [];
+        $seenValues = [];
+        foreach ($input as $option) {
+            if (!is_array($option)) {
+                continue;
+            }
+            $label = trim((string) (isset($option['label']) ? $option['label'] : ''));
+            $rawValue = isset($option['value']) ? trim((string) $option['value']) : '';
+            if ($label === '' && $rawValue === '') {
+                continue;
+            }
+            if ($label === '' || $rawValue === '' || !preg_match('/^-?\d+$/', $rawValue)) {
+                continue;
+            }
+            $value = (int) $rawValue;
+            if (isset($seenValues[$value])) {
+                continue;
+            }
+            $seenValues[$value] = true;
+            $options[] = ['label' => substr($label, 0, 100), 'value' => $value];
+        }
+        return $options;
     }
 
     private function next_question_code($surveyCode, $sequence)

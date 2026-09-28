@@ -1935,6 +1935,46 @@ button, input, select, textarea { font: inherit; }
   justify-content: flex-end;
   gap: 9px;
 }
+.form-type-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 5px;
+  border: 1px solid #e0e4ec;
+  border-radius: 10px;
+  background: #f7f8fb;
+}
+.form-type-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 7px;
+  color: #536076;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+.form-type-nav a.active {
+  color: #233b86;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(28, 39, 65, .12);
+}
+.form-type-nav span {
+  display: inline-grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #59677c;
+  background: #e9edf4;
+  font-size: 10px;
+}
+.form-type-banner { margin-bottom: 16px; }
+.form-type-banner p { margin-bottom: 0; }
 .survey-overview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -1983,17 +2023,25 @@ button, input, select, textarea { font: inherit; }
 .survey-overview-metrics strong { font-size: 16px; }
 .survey-overview-metrics span { margin-top: 2px; font-size: 9px; }
 .survey-overview-actions {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
   padding-top: 9px;
   border-top: 1px solid #e7eaf1;
 }
 .survey-overview-actions a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid #e0e5ef;
+  border-radius: 6px;
   color: #4054bb;
+  background: #fff;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 750;
   text-decoration: none;
 }
-.survey-overview-actions a:hover { text-decoration: underline; }
+.survey-overview-actions a:hover { border-color: #aeb9ee; background: #f7f8ff; }
 .package-creator {
   margin-bottom: 18px;
   border: 1px dashed #aeb9ee;
@@ -2541,6 +2589,57 @@ button, input, select, textarea { font: inherit; }
 .identity-setting-row small { margin-top: 4px; color: #667085; font-size: 10px; line-height: 1.4; }
 .identity-setting-row label span { display: block; margin-bottom: 5px; color: #667085; font-size: 9px; font-weight: 800; text-transform: uppercase; }
 .identity-setting-row select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #d9dee8; border-radius: 8px; background: #fff; font-size: 11px; }
+.choice-value-editor { display: grid; gap: 9px; margin: -2px 0 8px 18px; padding: 12px; border-left: 2px solid #d9e0f2; background: #f8f9fc; }
+.choice-value-heading { display: grid; gap: 3px; }
+.choice-value-heading strong { color: #344054; font-size: 11px; }
+.choice-value-heading small { color: #667085; font-size: 10px; }
+.choice-value-mode { display: grid; max-width: 260px; gap: 4px; color: #596579; font-size: 9px; font-weight: 700; }
+.choice-value-mode select { min-height: 34px; padding: 6px 9px; border: 1px solid #d9deea; border-radius: 6px; background: #fff; font-size: 11px; }
+.kbli-admin-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, .85fr); align-items: start; gap: 16px; margin-top: 18px; }
+.kbli-admin-grid .panel { min-width: 0; }
+.kbli-form { display: grid; gap: 14px; }
+.kbli-fields-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
+.kbli-fields-grid > label { display: grid; gap: 5px; color: #475467; font-size: 11px; font-weight: 700; }
+.kbli-fields-grid input,
+.kbli-fields-grid textarea,
+.kbli-search input { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid #d9dee8; border-radius: 6px; background: #fff; color: #344054; font: inherit; font-size: 12px; }
+.kbli-fields-grid textarea { resize: vertical; }
+.kbli-fields-grid .field-wide { grid-column: 1 / -1; }
+.kbli-import-form { display: grid; gap: 14px; }
+.kbli-import-form > label { display: grid; gap: 6px; color: #475467; font-size: 11px; font-weight: 700; }
+.kbli-import-form input[type="file"] { max-width: 100%; padding: 8px; border: 1px solid #d9dee8; border-radius: 6px; background: #fff; }
+.kbli-import-form small { color: #667085; font-size: 10px; font-weight: 400; line-height: 1.5; }
+.kbli-csv-guide { margin: 0 16px 16px; padding: 12px; border: 1px solid #dce4f1; border-radius: 7px; background: #f7f9fc; color: #475467; font-size: 11px; line-height: 1.5; }
+.kbli-csv-guide > strong { color: #344054; font-size: 12px; }
+.kbli-csv-guide p { margin: 4px 0 9px; }
+.kbli-csv-guide pre { max-width: 100%; overflow: auto; margin: 0 0 8px; padding: 10px; border-radius: 5px; background: #202a39; color: #f1f5f9; font-size: 10px; line-height: 1.5; white-space: pre; }
+.kbli-csv-guide ul { margin: 7px 0 0 18px; padding: 0; }
+.kbli-csv-guide li + li { margin-top: 3px; }
+.kbli-import-modes { display: grid; gap: 9px; margin: 0; padding: 12px; border: 1px solid #e1e5ed; border-radius: 7px; }
+.kbli-import-modes legend { padding: 0 5px; color: #344054; font-size: 11px; font-weight: 750; }
+.kbli-import-modes > label { display: flex; align-items: flex-start; gap: 8px; color: #475467; font-size: 11px; }
+.kbli-import-modes > label span { display: grid; gap: 3px; }
+.kbli-import-modes strong { color: #344054; }
+.kbli-import-modes .kbli-replace-mode strong { color: #a33a3a; }
+.kbli-replace-confirm { display: flex !important; grid-template-columns: auto 1fr; align-items: center; padding: 9px; border: 1px solid #f2c7c7; border-radius: 6px; color: #923b3b !important; background: #fff7f7; }
+.kbli-replace-confirm[hidden] { display: none !important; }
+.kbli-table-panel { margin-top: 18px; }
+.kbli-search { display: flex; align-items: end; gap: 8px; margin-bottom: 14px; }
+.kbli-search label { display: grid; min-width: min(360px, 100%); gap: 5px; color: #475467; font-size: 10px; font-weight: 750; }
+.kbli-row-actions { display: flex; align-items: center; gap: 5px; }
+.kbli-row-actions form { margin: 0; }
+.kbli-description { max-width: 300px; }
+.empty-cell { padding: 26px !important; color: #667085; text-align: center; }
+.kbli-edit-panel { max-width: 900px; margin-top: 18px; }
+.choice-value-rows { display: grid; gap: 7px; }
+.choice-value-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, .35fr) auto; align-items: end; gap: 8px; }
+.choice-value-row label { display: grid; gap: 4px; color: #596579; font-size: 9px; font-weight: 700; }
+.choice-value-row input { width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid #d9deea; border-radius: 6px; background: #fff; font-size: 11px; }
+.custom-options-field { grid-column: 1 / -2; display: grid; gap: 8px; }
+.custom-options-field[hidden] { display: none; }
+.custom-option-row { padding: 8px; border: 1px solid #e1e5ed; border-radius: 7px; background: #fff; }
+.custom-option-row .custom-remove-button { min-height: 34px; }
+.identity-setting-list + .builder-subsection { margin-top: 20px; }
 .builder-actions {
   display: flex;
   justify-content: space-between;
@@ -2651,6 +2750,14 @@ button, input, select, textarea { font: inherit; }
   .builder-form-info { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 720px) {
+  .kbli-admin-grid { grid-template-columns: 1fr; }
+  .kbli-fields-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kbli-search { align-items: stretch; flex-wrap: wrap; }
+  .kbli-search label { flex: 1 1 100%; }
+  .form-type-nav { width: 100%; }
+  .form-type-nav a { flex: 1; justify-content: center; padding: 0 8px; }
+  .survey-overview-grid { grid-template-columns: 1fr; }
+  .survey-overview-actions { grid-template-columns: 1fr 1fr; }
   .survey-overview-panel .panel-head {
     align-items: flex-start;
     flex-direction: column;
@@ -2673,10 +2780,14 @@ button, input, select, textarea { font: inherit; }
   .identity-setting-row { grid-template-columns: 1fr; }
   .custom-field-builder-row,
   .builder-form-info { grid-template-columns: 1fr; }
+  .custom-options-field { grid-column: auto; }
+  .choice-value-editor { margin-left: 0; }
+  .choice-value-row { grid-template-columns: minmax(0, 1fr) minmax(80px, .45fr) auto; }
   .builder-form-info .full { grid-column: auto; }
   .inline-option-row { grid-template-columns: 30px 1fr 80px 95px; }
 }
 @media (max-width: 520px) {
+  .kbli-fields-grid { grid-template-columns: 1fr; }
   .inline-option-row { grid-template-columns: 28px 1fr; }
   .inline-option-row input:nth-of-type(2),
   .inline-option-row input:nth-of-type(3) { grid-column: 2; }

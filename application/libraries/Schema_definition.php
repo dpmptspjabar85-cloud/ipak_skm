@@ -85,13 +85,6 @@ class Schema_definition
                         'on_update' => 'CASCADE',
                         'on_delete' => 'RESTRICT',
                     ],
-                    'fk_ipak_answer_option' => [
-                        'columns' => ['option_id'],
-                        'ref_table' => 'ipak_answer_options',
-                        'ref_columns' => ['id'],
-                        'on_update' => 'CASCADE',
-                        'on_delete' => 'RESTRICT',
-                    ],
                 ],
                 'engine' => 'InnoDB',
                 'charset' => 'utf8',
@@ -100,15 +93,14 @@ class Schema_definition
             'ipak_admin_roles' => [
                 'columns' => [
                     'user_id' => ['type' => 'INT UNSIGNED', 'auto_increment' => false, 'nullable' => false, 'primary' => true],
-                    'role_name' => ['type' => 'VARCHAR(50)', 'nullable' => false, 'unique' => 'uq_ipak_role_name'],
+                    'role_name' => ['type' => 'VARCHAR(50)', 'nullable' => false],
                     'description' => ['type' => 'VARCHAR(255)', 'nullable' => true],
                     'is_system' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
                     'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
                 ],
                 'indexes' => [
-                    'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
-                    'uq_ipak_role_name' => ['columns' => ['role_name'], 'type' => 'UNIQUE'],
+                    'PRIMARY' => ['columns' => ['user_id'], 'type' => 'PRIMARY'],
                 ],
                 'foreign_keys' => [],
                 'engine' => 'InnoDB',

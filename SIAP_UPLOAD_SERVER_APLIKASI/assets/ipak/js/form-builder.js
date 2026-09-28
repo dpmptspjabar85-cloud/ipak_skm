@@ -52,6 +52,9 @@
     var next = event.target.closest('[data-builder-next]');
     var back = event.target.closest('[data-builder-back]');
     var removeRow = event.target.closest('[data-remove-row]');
+    var removeChoice = event.target.closest('[data-remove-choice]');
+    var addChoice = event.target.closest('[data-add-choice]');
+    var addCustomChoice = event.target.closest('[data-add-custom-choice]');
     var removeQuestion = event.target.closest('[data-remove-question]');
     if (next) {
       event.preventDefault();
@@ -65,6 +68,15 @@
       event.preventDefault();
       var row = removeRow.closest('.custom-field-builder-row');
       if (row) row.remove();
+    }
+    if (removeChoice) {
+      event.preventDefault();
+      var choiceRow = removeChoice.closest('.choice-value-row');
+      if (choiceRow) choiceRow.remove();
+    }
+    if (addChoice || addCustomChoice) {
+      event.preventDefault();
+      addChoiceRow(addChoice || addCustomChoice);
     }
     if (removeQuestion) {
       event.preventDefault();
@@ -93,9 +105,81 @@
     typeSelect.addEventListener('change', function () {
       optionsField.hidden = typeSelect.value !== 'select';
     });
+    syncCustomChoiceValues(optionsField);
   }
 
   Array.prototype.slice.call(document.querySelectorAll('.custom-field-builder-row')).forEach(refreshOptionVisibility);
+
+  function syncCustomChoiceValues(container) {
+    var mode = container.querySelector('[data-choice-value-mode]');
+    if (!mode) return;
+    var useLabel = mode.value === 'label';
+    Array.prototype.slice.call(container.querySelectorAll('.custom-option-row')).forEach(function (row) {
+      var label = row.querySelector('input[name$="[label]"], input[data-option-name="label"]');
+      var value = row.querySelector('input[name$="[value]"], input[data-option-name="value"]');
+      if (!label || !value) return;
+      value.type = useLabel ? 'text' : 'number';
+      value.readOnly = useLabel;
+      value.placeholder = useLabel ? 'Sama dengan label' : 'Contoh: 1';
+      if (useLabel) value.value = label.value;
+    });
+  }
+
+  form.addEventListener('change', function (event) {
+    if (event.target.matches('[data-choice-value-mode]')) {
+      syncCustomChoiceValues(event.target.closest('.custom-options-field'));
+    }
+  });
+  form.addEventListener('input', function (event) {
+    if (!event.target.matches('input[name$="[label]"], input[data-option-name="label"]')) return;
+    var container = event.target.closest('.custom-options-field');
+    var mode = container && container.querySelector('[data-choice-value-mode]');
+    var row = event.target.closest('.custom-option-row');
+    var value = row && row.querySelector('input[name$="[value]"], input[data-option-name="value"]');
+    if (mode && mode.value === 'label' && value) value.value = event.target.value;
+  });
+
+  function addChoiceRow(button) {
+    var list = button.closest('[data-choice-list]') || button.closest('.custom-options-field');
+    if (!list) return;
+    var row = document.createElement('div');
+    row.className = 'choice-value-row' + (list.closest('.custom-options-field') ? ' custom-option-row' : '');
+    var baseName;
+    if (list.hasAttribute('data-choice-list')) {
+      baseName = list.getAttribute('data-choice-list');
+    } else {
+      var firstOption = list.querySelector('[name*="[options]"]');
+      if (!firstOption) return;
+      baseName = firstOption.name.replace(/\[options\].*$/, '[options]');
+    }
+    var optionRows = list.querySelectorAll('.choice-value-row');
+    var nextIndex = 0;
+    Array.prototype.forEach.call(optionRows, function (optionRow) {
+      var input = optionRow.querySelector('input');
+      if (!input) return;
+      var match = input.name.match(/\[(\d+)\]\[(?:label|value)\]$/);
+      if (match) nextIndex = Math.max(nextIndex, parseInt(match[1], 10) + 1);
+    });
+    [['Label', 'label', 'Contoh: Pilihan'], ['Value', 'value', '1']].forEach(function (item) {
+      var label = document.createElement('label');
+      label.appendChild(document.createTextNode(item[0]));
+      var input = document.createElement('input');
+      input.name = baseName + '[' + nextIndex + '][' + item[1] + ']';
+      input.type = 'text';
+      input.placeholder = item[2];
+      label.appendChild(input);
+      row.appendChild(label);
+    });
+    var remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'custom-remove-button';
+    remove.setAttribute('data-remove-choice', '');
+    remove.textContent = 'Hapus';
+    row.appendChild(remove);
+    list.querySelector('.choice-value-rows').appendChild(row);
+    syncCustomChoiceValues(list);
+    row.querySelector('input').focus();
+  }
 
   function addCustomField(group) {
     var template = document.getElementById('custom-field-template');
@@ -107,6 +191,9 @@
     var prefix = group === 'initial' ? 'initial_custom' : 'identity_custom';
     Array.prototype.slice.call(row.querySelectorAll('[data-name]')).forEach(function (input) {
       input.name = prefix + '[' + index + '][' + input.getAttribute('data-name') + ']';
+    });
+    Array.prototype.slice.call(row.querySelectorAll('[data-option-name]')).forEach(function (input) {
+      input.name = prefix + '[' + index + '][options][' + input.getAttribute('data-option-index') + '][' + input.getAttribute('data-option-name') + ']';
     });
     if (group === 'initial') {
       var modeHolder = row.querySelector('.custom-mode-holder');

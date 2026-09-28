@@ -22,10 +22,13 @@ sama.
 3. Terapkan migrasi `012_protect_legacy_skm.sql`.
 4. Terapkan migrasi `013_api_builder.sql`. Migrasi ini hanya membuat tabel
    konfigurasi dan log API; tabel SKM lama tidak diubah.
-5. Deploy perubahan aplikasi SKM lama pada:
+5. Terapkan migration terbaru `019_create_kbli_catalog.sql` untuk menambah
+   katalog KBLI terpisah. Migration ini tidak mengubah `trsektor` atau respons
+   SKM lama.
+6. Deploy perubahan aplikasi SKM lama pada:
    - `application/models/Skm_model.php`
    - `application/models/Survei_model.php`
-6. Deploy aplikasi survei fleksibel `ipak_skm`.
+7. Deploy aplikasi survei fleksibel `ipak_skm`.
 
 Perubahan aplikasi SKM lama harus terpasang sebelum survei fleksibel dibuka
 untuk umum. Penyaring `flag_skm = 1` mencegah respons survei baru masuk ke

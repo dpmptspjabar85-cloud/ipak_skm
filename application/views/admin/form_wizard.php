@@ -1,6 +1,26 @@
 <?php
-$oldInitialFields = isset($old['initial_fields']) && is_array($old['initial_fields']) ? $old['initial_fields'] : ['email'];
+$wizardMode = isset($mode) ? $mode : 'create';
+$isEditMode = $wizardMode === 'edit';
+$wizardAction = $isEditMode
+    ? site_url('admin/forms/edit/' . (int) $form_id)
+    : site_url('admin/forms/create');
+$wizardTitle = $isEditMode ? 'Edit Form Survei' : 'Buat Form Survei';
+$wizardBackUrl = $isEditMode
+    ? site_url('admin/forms')
+    : site_url('admin/forms');
+$submitLabel = $isEditMode ? 'Simpan perubahan form' : 'Buat form survei';
+$heroTitle = $isEditMode ? 'Edit form survei yang sudah ada.' : 'Buat form survei dalam tiga langkah.';
+$heroHelp = $isEditMode
+    ? 'Form ini sudah terhubung dengan satu survei. Anda dapat memperbarui pertanyaan, isian responden, dan informasi form di bawah.'
+    : 'Isi dari langkah pertama sampai terakhir. Form baru disimpan setelah Anda menekan tombol “Buat form survei”.';
+$heroBtnLabel = $isEditMode ? 'Kembali ke daftar form' : 'Kembali ke daftar form';
+$initialBtnLabel = $isEditMode ? 'Lanjut ke identitas →' : 'Lanjut ke identitas →';
+$identityBtnLabel = $isEditMode ? 'Lanjut ke pertanyaan →' : 'Lanjut ke pertanyaan →';
+$initialFieldsChecked = ['email', 'phone', 'identity_number'];
+$oldInitialFields = isset($old['initial_fields']) && is_array($old['initial_fields']) ? $old['initial_fields'] : (in_array('email', $initialFieldsChecked, true) ? ['email'] : []);
 $oldIdentityFields = isset($old['identity_fields']) && is_array($old['identity_fields']) ? $old['identity_fields'] : [];
+$oldIdentityOptions = isset($old['identity_options']) && is_array($old['identity_options']) ? $old['identity_options'] : [];
+$oldKbliConfig = isset($old['identity_kbli']) && is_array($old['identity_kbli']) ? $old['identity_kbli'] : [];
 $oldInitialCustom = isset($old['initial_custom']) && is_array($old['initial_custom']) ? $old['initial_custom'] : [];
 $oldIdentityCustom = isset($old['identity_custom']) && is_array($old['identity_custom']) ? $old['identity_custom'] : [];
 $oldQuestions = isset($old['new_questions']) && is_array($old['new_questions']) ? $old['new_questions'] : [[]];
@@ -9,6 +29,33 @@ $oldPublicListed = $old ? !empty($old['is_public_listed']) : true;
 $oldValue = function ($key, $fallback = '') use ($old) {
     return isset($old[$key]) ? $old[$key] : $fallback;
 };
+$customOptions = function ($field) {
+  $options = isset($field['options']) ? $field['options'] : [];
+  if (is_string($options)) {
+    $options = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n|,/', $options))));
+  }
+  if (!is_array($options)) {
+    return [];
+  }
+  $normalized = [];
+  foreach ($options as $index => $option) {
+    if (is_array($option)) {
+      $normalized[] = [
+        'label' => isset($option['label']) ? $option['label'] : '',
+        'value' => isset($option['value']) ? $option['value'] : $index + 1,
+      ];
+    } else {
+      $normalized[] = ['label' => $option, 'value' => $index + 1];
+    }
+  }
+  return $normalized;
+};
+$choiceOptions = isset($choice_options) ? $choice_options : [
+    'gender' => [1 => 'Laki-laki', 2 => 'Perempuan'],
+    'education' => [],
+    'job' => [],
+    'service' => [],
+];
 ?>
 
 <?php if ($wizard_error): ?>
@@ -17,11 +64,13 @@ $oldValue = function ($key, $fallback = '') use ($old) {
 
 <section class="builder-hero">
   <div>
-    <span class="eyebrow">Panduan pembuatan form</span>
-    <h2>Buat form survei dalam tiga langkah.</h2>
-    <p>Isi dari langkah pertama sampai terakhir. Form baru disimpan setelah Anda menekan tombol “Buat form survei”.</p>
+    <span class="eyebrow">Panduan pengelolaan form</span>
+    <h2><?= $isEditMode ? 'Edit form survei dalam tiga langkah.' : 'Buat form survei dalam tiga langkah.' ?></h2>
+    <p><?= $isEditMode
+        ? 'Form ini sudah terhubung dengan satu survei. Perbarui pertanyaan, isian responden, dan informasi form di bawah.'
+        : 'Isi dari langkah pertama sampai terakhir. Form baru disimpan setelah Anda menekan tombol “Buat form survei”.' ?></p>
   </div>
-  <a class="btn btn-secondary btn-sm" href="<?= site_url('admin/forms') ?>">Kembali ke daftar form</a>
+  <a class="btn btn-secondary btn-sm" href="<?= $wizardBackUrl ?>">Kembali ke daftar form</a>
 </section>
 
 <div class="builder-progress" aria-label="Tahapan pembuatan form">
@@ -36,8 +85,11 @@ $oldValue = function ($key, $fallback = '') use ($old) {
   </button>
 </div>
 
-<form id="form-builder" method="post" action="<?= site_url('admin/forms/create') ?>" novalidate>
+<form id="form-builder" method="post" action="<?= $wizardAction ?>" novalidate>
   <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+  <?php if ($isEditMode): ?>
+    <input type="hidden" name="form_id" value="<?= (int) $form_id ?>">
+  <?php endif; ?>
 
   <section class="panel builder-step is-active" data-builder-step="0">
     <div class="builder-step-head">
@@ -79,7 +131,21 @@ $oldValue = function ($key, $fallback = '') use ($old) {
               <?php endforeach; ?>
             </select></div>
             <div class="field"><label>Petunjuk</label><input name="initial_custom[<?= (int) $index ?>][help_text]" maxlength="255" value="<?= html_escape(isset($field['help_text']) ? $field['help_text'] : '') ?>" placeholder="Jelaskan cara mengisinya"></div>
-            <div class="field custom-options-field"><label>Pilihan, pisahkan dengan koma</label><input name="initial_custom[<?= (int) $index ?>][options]" value="<?= html_escape(isset($field['options']) ? $field['options'] : '') ?>" placeholder="Pilihan A, Pilihan B"></div>
+            <div class="custom-options-field" hidden>
+              <div class="choice-value-heading"><strong>Pilihan dropdown</strong><small>Pilih value angka atau gunakan teks label sebagai value.</small></div>
+              <label class="choice-value-mode">Value pilihan<select name="initial_custom[<?= (int) $index ?>][value_mode]" data-choice-value-mode><option value="numeric" <?= isset($field['value_mode']) && $field['value_mode'] === 'label' ? '' : 'selected' ?>>Angka</option><option value="label" <?= isset($field['value_mode']) && $field['value_mode'] === 'label' ? 'selected' : '' ?>>Sama dengan label</option></select></label>
+              <div class="choice-value-rows">
+                <?php $fieldOptions = $customOptions($field); ?>
+                <?php foreach ($fieldOptions as $optionIndex => $option): ?>
+                  <div class="choice-value-row custom-option-row">
+                    <label>Label<input name="initial_custom[<?= (int) $index ?>][options][<?= (int) $optionIndex ?>][label]" maxlength="100" value="<?= html_escape($option['label']) ?>" placeholder="Contoh: SD"></label>
+                    <label class="choice-value-input-label">Value<input name="initial_custom[<?= (int) $index ?>][options][<?= (int) $optionIndex ?>][value]" type="text" value="<?= html_escape($option['value']) ?>" placeholder="Contoh: 1"></label>
+                    <button class="custom-remove-button" type="button" data-remove-choice>Hapus</button>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+              <button class="btn btn-secondary btn-sm" type="button" data-add-custom-choice>Tambah pilihan</button>
+            </div>
             <button class="custom-remove-button" type="button" data-remove-row aria-label="Hapus input">Hapus</button>
           </div>
         <?php endforeach; ?>
@@ -88,7 +154,7 @@ $oldValue = function ($key, $fallback = '') use ($old) {
 
     <div class="builder-actions">
       <span></span>
-      <button class="btn btn-primary" type="button" data-builder-next>Lanjut ke identitas →</button>
+      <button class="btn btn-primary" type="button" data-builder-next><?= $initialBtnLabel ?></button>
     </div>
   </section>
 
@@ -102,7 +168,7 @@ $oldValue = function ($key, $fallback = '') use ($old) {
     </div>
 
     <div class="identity-setting-list">
-      <?php foreach (['name', 'address', 'gender', 'age', 'education', 'job', 'service'] as $fieldKey): ?>
+      <?php foreach (['name', 'address', 'gender', 'age', 'education', 'job', 'service', 'kbli'] as $fieldKey): ?>
         <?php
         $definition = $field_definitions[$fieldKey];
         $selectedMode = isset($oldIdentityFields[$fieldKey]) ? $oldIdentityFields[$fieldKey] : 'hidden';
@@ -118,6 +184,50 @@ $oldValue = function ($key, $fallback = '') use ($old) {
             </select>
           </label>
         </div>
+        <?php if (in_array($fieldKey, ['gender', 'education', 'job', 'service'], true)): ?>
+          <?php
+          $fieldOptions = isset($oldIdentityOptions[$fieldKey]) && is_array($oldIdentityOptions[$fieldKey])
+            ? $oldIdentityOptions[$fieldKey]
+            : [];
+          if (!$fieldOptions) {
+            foreach ($choiceOptions[$fieldKey] as $optionValue => $optionLabel) {
+                $fieldOptions[] = ['label' => $optionLabel, 'value' => $optionValue];
+            }
+          }
+          ?>
+          <div class="choice-value-editor" data-choice-list="identity_options[<?= html_escape($fieldKey) ?>]">
+            <div class="choice-value-heading"><strong>Pilihan dan value angka</strong><small>Ubah label sesuai kebutuhan. Value memakai kode angka kategori yang tersedia agar grafik tetap sesuai.</small></div>
+            <div class="choice-value-rows">
+              <?php foreach ($fieldOptions as $optionIndex => $option): ?>
+                <div class="choice-value-row">
+                  <label>Label<input name="identity_options[<?= html_escape($fieldKey) ?>][<?= (int) $optionIndex ?>][label]" maxlength="100" value="<?= html_escape(isset($option['label']) ? $option['label'] : '') ?>" placeholder="Contoh: SD"></label>
+                  <label>Value angka<input name="identity_options[<?= html_escape($fieldKey) ?>][<?= (int) $optionIndex ?>][value]" type="number" step="1" value="<?= html_escape(isset($option['value']) ? $option['value'] : '') ?>" placeholder="Contoh: 1"></label>
+                  <button class="custom-remove-button" type="button" data-remove-choice aria-label="Hapus pilihan">Hapus</button>
+                </div>
+              <?php endforeach; ?>
+            </div>
+            <button class="btn btn-secondary btn-sm" type="button" data-add-choice>Tambah pilihan</button>
+          </div>
+        <?php endif; ?>
+        <?php if ($fieldKey === 'kbli'): ?>
+          <?php
+          $selectedKbliCodeField = isset($oldKbliConfig['code_field']) ? $oldKbliConfig['code_field'] : 'kode_gabungan';
+          $selectedKbliColumns = isset($oldKbliConfig['display_columns']) && is_array($oldKbliConfig['display_columns'])
+            ? $oldKbliConfig['display_columns']
+            : ['kode_gabungan', 'sektor_bps', 'judul'];
+          ?>
+          <div class="choice-value-editor kbli-identity-config">
+            <div class="choice-value-heading"><strong>Pengaturan pilihan KBLI</strong><small>Responden memilih satu baris katalog. Nilai formulir tetap terhubung ke record KBLI.</small></div>
+            <label class="choice-value-mode">Kode utama<select name="identity_kbli[code_field]"><option value="kode_gabungan" <?= $selectedKbliCodeField === 'kode_gabungan' ? 'selected' : '' ?>>Kode Gabungan</option><option value="kode" <?= $selectedKbliCodeField === 'kode' ? 'selected' : '' ?>>Kode</option></select></label>
+            <div class="kbli-display-columns"><strong>Informasi yang ditampilkan ke responden</strong><small>Pilih satu atau lebih. Kode utama tetap ditampilkan sebagai identitas opsi.</small>
+              <div class="choice-grid">
+                <?php foreach ($kbli_display_columns as $columnKey => $columnLabel): ?>
+                  <label class="choice-card"><input type="checkbox" name="identity_kbli[display_columns][]" value="<?= html_escape($columnKey) ?>" <?= in_array($columnKey, $selectedKbliColumns, true) ? 'checked' : '' ?>><span><?= html_escape($columnLabel) ?></span></label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+        <?php endif; ?>
       <?php endforeach; ?>
     </div>
 
@@ -140,7 +250,20 @@ $oldValue = function ($key, $fallback = '') use ($old) {
               <?php endforeach; ?>
             </select></div>
             <div class="field"><label>Petunjuk</label><input name="identity_custom[<?= (int) $index ?>][help_text]" maxlength="255" value="<?= html_escape(isset($field['help_text']) ? $field['help_text'] : '') ?>" placeholder="Jelaskan cara mengisinya"></div>
-            <div class="field custom-options-field"><label>Pilihan, pisahkan dengan koma</label><input name="identity_custom[<?= (int) $index ?>][options]" value="<?= html_escape(isset($field['options']) ? $field['options'] : '') ?>" placeholder="Pilihan A, Pilihan B"></div>
+            <div class="custom-options-field" hidden>
+              <div class="choice-value-heading"><strong>Pilihan dropdown</strong><small>Pilih value angka atau gunakan teks label sebagai value.</small></div>
+              <label class="choice-value-mode">Value pilihan<select name="identity_custom[<?= (int) $index ?>][value_mode]" data-choice-value-mode><option value="numeric" <?= isset($field['value_mode']) && $field['value_mode'] === 'label' ? '' : 'selected' ?>>Angka</option><option value="label" <?= isset($field['value_mode']) && $field['value_mode'] === 'label' ? 'selected' : '' ?>>Sama dengan label</option></select></label>
+              <div class="choice-value-rows">
+                <?php foreach ($customOptions($field) as $optionIndex => $option): ?>
+                  <div class="choice-value-row custom-option-row">
+                    <label>Label<input name="identity_custom[<?= (int) $index ?>][options][<?= (int) $optionIndex ?>][label]" maxlength="100" value="<?= html_escape($option['label']) ?>" placeholder="Contoh: SD"></label>
+                    <label class="choice-value-input-label">Value<input name="identity_custom[<?= (int) $index ?>][options][<?= (int) $optionIndex ?>][value]" type="text" value="<?= html_escape($option['value']) ?>" placeholder="Contoh: 1"></label>
+                    <button class="custom-remove-button" type="button" data-remove-choice>Hapus</button>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+              <button class="btn btn-secondary btn-sm" type="button" data-add-custom-choice>Tambah pilihan</button>
+            </div>
             <button class="custom-remove-button" type="button" data-remove-row aria-label="Hapus identitas">Hapus</button>
           </div>
         <?php endforeach; ?>
@@ -149,7 +272,7 @@ $oldValue = function ($key, $fallback = '') use ($old) {
 
     <div class="builder-actions">
       <button class="btn btn-secondary" type="button" data-builder-back>← Kembali</button>
-      <button class="btn btn-primary" type="button" data-builder-next>Lanjut ke pertanyaan →</button>
+      <button class="btn btn-primary" type="button" data-builder-next><?= $identityBtnLabel ?></button>
     </div>
   </section>
 
@@ -183,7 +306,7 @@ $oldValue = function ($key, $fallback = '') use ($old) {
       <div class="builder-subsection-head">
         <div>
           <h3>Pilih pertanyaan yang sudah ada</h3>
-          <p>Pertanyaan dapat digunakan kembali pada beberapa survei. Pilih sesuai kebutuhan survei baru.</p>
+          <p>Pertanyaan dapat digunakan kembali pada beberapa survei. Pilih sesuai kebutihan survei baru.</p>
         </div>
         <span class="badge"><?= count($available_questions) ?> tersedia</span>
       </div>
@@ -245,11 +368,13 @@ $oldValue = function ($key, $fallback = '') use ($old) {
 
     <div class="builder-final-note">
       <strong>Setelah disimpan</strong>
-      <span>Survei, susunan pertanyaan, form publik, shortcut, dan pengaturan data responden dibuat sekaligus.</span>
+      <span><?= $isEditMode
+          ? 'Survei, susunan pertanyaan, data responden, dan shortcut publik diperbarui.'
+          : 'Survei, susunan pertanyaan, form publik, shortcut, dan pengaturan data responden dibuat sekaligus.' ?></span>
     </div>
     <div class="builder-actions">
       <button class="btn btn-secondary" type="button" data-builder-back>← Kembali</button>
-      <button class="btn btn-primary" type="submit">Buat form survei</button>
+      <button class="btn btn-primary" type="submit"><?= $submitLabel ?></button>
     </div>
   </section>
 </form>
@@ -260,7 +385,20 @@ $oldValue = function ($key, $fallback = '') use ($old) {
     <div class="field custom-mode-holder"><label>Status</label><select data-name="mode"><option value="required">Wajib</option><option value="optional">Opsional</option></select></div>
     <div class="field"><label>Jenis input</label><select data-name="type"><option value="text">Teks</option><option value="email">Email</option><option value="tel">Nomor telepon</option><option value="number">Angka</option><option value="textarea">Teks panjang</option><option value="select">Daftar pilihan</option></select></div>
     <div class="field"><label>Petunjuk</label><input data-name="help_text" maxlength="255" placeholder="Jelaskan cara mengisinya"></div>
-    <div class="field custom-options-field"><label>Pilihan, pisahkan dengan koma</label><input data-name="options" placeholder="Pilihan A, Pilihan B"></div>
+    <div class="custom-options-field" hidden>
+      <div class="choice-value-heading"><strong>Pilihan dropdown</strong><small>Pilih value angka atau gunakan teks label sebagai value.</small></div>
+      <label class="choice-value-mode">Value pilihan<select data-name="value_mode" data-choice-value-mode><option value="numeric" selected>Angka</option><option value="label">Sama dengan label</option></select></label>
+      <div class="choice-value-rows">
+        <?php foreach ([1, 2] as $optionIndex): ?>
+          <div class="choice-value-row custom-option-row">
+            <label>Label<input data-option-index="<?= $optionIndex - 1 ?>" data-option-name="label" maxlength="100" placeholder="Contoh: SD"></label>
+            <label class="choice-value-input-label">Value<input data-option-index="<?= $optionIndex - 1 ?>" data-option-name="value" type="text" value="<?= $optionIndex ?>" placeholder="Contoh: <?= $optionIndex ?>"></label>
+            <button class="custom-remove-button" type="button" data-remove-choice>Hapus</button>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <button class="btn btn-secondary btn-sm" type="button" data-add-custom-choice>Tambah pilihan</button>
+    </div>
     <button class="custom-remove-button" type="button" data-remove-row>Hapus</button>
   </div>
 </template>

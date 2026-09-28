@@ -679,42 +679,6 @@ END//
 DELIMITER ;
 
 -- ============================================================
--- MIGRATION: 018_add_survey_mandatory.sql
--- ============================================================
-
-SET @ipak_mandatory_column_exists = (
-    SELECT COUNT(*)
-    FROM information_schema.columns
-    WHERE table_schema = DATABASE()
-      AND table_name = 'ipak_surveys'
-      AND column_name = 'is_mandatory'
-);
-
-SET @ipak_mandatory_sql = IF(
-    @ipak_mandatory_column_exists = 0,
-    'ALTER TABLE ipak_surveys ADD COLUMN is_mandatory TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active',
-    'SELECT 1'
-);
-
-PREPARE ipak_mandatory_statement FROM @ipak_mandatory_sql;
-EXECUTE ipak_mandatory_statement;
-DEALLOCATE PREPARE ipak_mandatory_statement;
-
-DROP TRIGGER IF EXISTS ipak_protect_mandatory_survey_delete;
-
-DELIMITER //
-CREATE TRIGGER ipak_protect_mandatory_survey_delete
-BEFORE DELETE ON ipak_surveys
-FOR EACH ROW
-BEGIN
-    IF OLD.is_mandatory = 1 THEN
-        SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Survei wajib tidak dapat dihapus';
-    END IF;
-END//
-DELIMITER ;
-
--- ============================================================
 -- MIGRATION: 007_three_step_form_builder.sql
 -- ============================================================
 
@@ -1663,3 +1627,65 @@ SET @ipak_form_public_visibility_sql = IF(
 PREPARE ipak_form_public_visibility_statement FROM @ipak_form_public_visibility_sql;
 EXECUTE ipak_form_public_visibility_statement;
 DEALLOCATE PREPARE ipak_form_public_visibility_statement;
+
+-- ============================================================
+-- MIGRATION: 018_add_survey_mandatory.sql
+-- ============================================================
+
+-- Menambahkan flag is_mandatory pada survei.
+-- Survei yang ditandai wajib tidak dapat dihapus (dilindungi seperti survei sistem).
+
+SET @ipak_mandatory_column_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'ipak_surveys'
+      AND column_name = 'is_mandatory'
+);
+
+SET @ipak_mandatory_sql = IF(
+    @ipak_mandatory_column_exists = 0,
+    'ALTER TABLE ipak_surveys ADD COLUMN is_mandatory TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active',
+    'SELECT 1'
+);
+
+PREPARE ipak_mandatory_statement FROM @ipak_mandatory_sql;
+EXECUTE ipak_mandatory_statement;
+DEALLOCATE PREPARE ipak_mandatory_statement;
+
+DROP TRIGGER IF EXISTS ipak_protect_mandatory_survey_delete;
+
+DELIMITER //
+CREATE TRIGGER ipak_protect_mandatory_survey_delete
+BEFORE DELETE ON ipak_surveys
+FOR EACH ROW
+BEGIN
+    IF OLD.is_mandatory = 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Survei wajib tidak dapat dihapus';
+    END IF;
+END//
+DELIMITER ;
+
+-- ============================================================
+-- MIGRATION: 019_create_kbli_catalog.sql
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS ipak_kbli (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    kode_gabungan VARCHAR(32) NOT NULL,
+    kategori VARCHAR(32) NOT NULL DEFAULT '',
+    kode VARCHAR(32) NOT NULL DEFAULT '',
+    sektor_bps VARCHAR(255) NOT NULL DEFAULT '',
+    judul VARCHAR(255) NOT NULL,
+    deskripsi TEXT NOT NULL,
+    digit TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    hirarki VARCHAR(40) NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_ipak_kbli_kode_gabungan (kode_gabungan),
+    KEY idx_ipak_kbli_kategori (kategori),
+    KEY idx_ipak_kbli_kode (kode),
+    KEY idx_ipak_kbli_digit_hirarki (digit, hirarki)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

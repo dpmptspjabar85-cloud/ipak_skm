@@ -15,6 +15,10 @@ Sebelum mengimpor:
 2. Pilih database SKM yang benar di phpMyAdmin.
 3. Impor berkas Versi 1.
 4. Pastikan impor berakhir tanpa pesan error.
+5. Migration `019_create_kbli_catalog.sql` menambahkan katalog `ipak_kbli`
+	terpisah. Setelah aplikasi terbaru terpasang, data dapat diimpor melalui
+	menu admin `KBLI`; mode pertahankan memperbarui/menambah berdasarkan Kode
+	Gabungan, sedangkan mode ganti hanya menghapus isi katalog KBLI tersebut.
 
 ## Versi 2 — instalasi modul lengkap
 

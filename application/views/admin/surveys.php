@@ -8,10 +8,10 @@
 <section class="admin-guide-banner">
   <div class="guide-number">i</div>
   <div>
-    <strong>Halaman lanjutan untuk mengubah survei yang sudah ada</strong>
-    <p>Halaman utama Survei, Form & Shortcut tetap menjadi pusat pengelolaan. Gunakan halaman ini hanya untuk mengubah nama, penilaian, warna, dan susunan pertanyaan survei.</p>
+    <strong>Pengaturan edit terarah untuk setiap survei</strong>
+    <p>Pilih nama dan susunan survei, isi pertanyaan, atau data responden. Perubahan pada teks pertanyaan juga berlaku di survei lain yang memakai pertanyaan yang sama.</p>
   </div>
-  <a class="btn btn-secondary btn-sm" href="<?= site_url('admin/forms') ?>">Kembali ke halaman utama survei</a>
+  <a class="btn btn-primary btn-sm" href="<?= site_url('admin/forms/create') ?>">Buat survei baru</a>
 </section>
 
 <section class="panel" style="margin-top:18px">
@@ -111,7 +111,7 @@
               <div class="option-editor-head">
                 <div>
                   <h3>Pertanyaan dalam survei</h3>
-                  <p>Pertanyaan yang sudah digunakan survei lain disembunyikan. Pertanyaan yang sudah dipakai survei ini tetap terlihat.</p>
+                  <p>Pilih pertanyaan untuk survei ini. Untuk mengubah teks, pilihan, atau skor jawaban, buka editor pertanyaan.</p>
                 </div>
               </div>
               <div class="choice-grid survey-question-picker">
@@ -122,7 +122,13 @@
                   </label>
                 <?php endforeach; ?>
               </div>
-              <button class="btn btn-primary btn-sm" type="submit">Simpan perubahan survei</button>
+              <div class="form-save-actions">
+                <button class="btn btn-primary" type="submit">Simpan nama dan susunan</button>
+                <a class="btn btn-secondary" href="<?= site_url('admin/questions') . '?survey_id=' . (int) $surveyId ?>">Edit pertanyaan dan jawaban</a>
+                <?php if (isset($primary_forms[$surveyId])): ?>
+                  <a class="btn btn-secondary" href="<?= site_url('admin/forms/edit/' . (int) $primary_forms[$surveyId]['form_id']) ?>">Edit form lengkap (pertanyaan & isian)</a>
+                <?php endif; ?>
+              </div>
               <?php if ($locked): ?>
                 <span class="locked-switch">Survei sistem · tidak dapat dihapus</span>
               <?php elseif ($mandatory): ?>

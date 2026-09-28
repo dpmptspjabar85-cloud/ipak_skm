@@ -82,6 +82,18 @@
         <?php endif; ?>
       </section>
 
+      <?php if (!empty($results['foreign_keys_skipped'])): ?>
+        <section class="result-card" style="border-color:#f1ca78;background:#fffaf0">
+          <h3>Foreign Key Dilewati (<?= count($results['foreign_keys_skipped']) ?>)</h3>
+          <p>Constraint belum dipasang karena ada data anak yang tidak memiliki baris induk. Data tidak dihapus.</p>
+          <ul>
+            <?php foreach ($results['foreign_keys_skipped'] as $foreignKey): ?>
+              <li><?= html_escape($foreignKey) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </section>
+      <?php endif; ?>
+
       <section class="result-card">
         <h3>Struktur Sudah Lengkap</h3>
         <p>Kolom: <?= count($results['columns_existed']) ?> | Index: <?= count($results['indexes_existed']) ?> | FK: <?= count($results['foreign_keys_existed']) ?></p>

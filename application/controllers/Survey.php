@@ -226,7 +226,7 @@ class Survey extends CI_Controller
                 return redirect($this->survey_url($resi, $formCode));
             }
             if ($this->ipak->has_ipak_response($resi)) {
-                $this->session->set_flashdata('access_error', 'Penilaian SKM untuk nomor resi ini sudah pernah dikirim.');
+                $this->session->set_flashdata('access_error', 'Penilaian untuk nomor resi ini sudah pernah dikirim.');
                 return redirect($this->survey_url($resi, $formCode));
             }
         } else {
@@ -251,6 +251,20 @@ class Survey extends CI_Controller
             'job' => 'in_list[' . implode(',', array_map('intval', array_keys($this->config->item('ipak_jobs')))) . ']',
             'service' => 'in_list[' . implode(',', array_map('intval', array_keys($sectorOptions))) . ']',
         ];
+        foreach (['gender', 'education', 'job', 'service'] as $fieldKey) {
+            if (empty($fieldSettings[$fieldKey]['options']) || !is_array($fieldSettings[$fieldKey]['options'])) {
+                continue;
+            }
+            $allowedValues = [];
+            foreach ($fieldSettings[$fieldKey]['options'] as $option) {
+                if (is_array($option) && isset($option['value']) && preg_match('/^-?\d+$/', (string) $option['value'])) {
+                    $allowedValues[] = (int) $option['value'];
+                }
+            }
+            if ($allowedValues) {
+                $fieldRules[$fieldKey] = 'in_list[' . implode(',', array_unique($allowedValues)) . ']';
+            }
+        }
         $extraFieldSettings = [];
         foreach ($fieldRules as $fieldKey => $validationRule) {
             if (empty($fieldSettings[$fieldKey]) || $fieldSettings[$fieldKey]['field_mode'] === 'hidden') {
@@ -269,6 +283,15 @@ class Survey extends CI_Controller
             }
             $inputName = 'extra_' . $fieldKey;
             $fieldType = isset($fieldSetting['field_type']) ? $fieldSetting['field_type'] : 'text';
+            if (!empty($fieldSetting['options']['source']) && $fieldSetting['options']['source'] === 'ipak_kbli') {
+                $rules[] = [
+                    'field' => $inputName,
+                    'label' => $fieldSetting['field_label'],
+                    'rules' => ($fieldSetting['field_mode'] === 'required' ? 'required|' : '') . 'trim|max_length[20]',
+                ];
+                $extraFieldSettings[$inputName] = $fieldSetting;
+                continue;
+            }
             $validationRule = 'trim|max_length[255]';
             if ($fieldType === 'email') {
                 $validationRule = 'trim|valid_email|max_length[100]';
@@ -307,11 +330,26 @@ class Survey extends CI_Controller
         }
 
         foreach ($extraFieldSettings as $inputName => $fieldSetting) {
+            if (!empty($fieldSetting['options']['source']) && $fieldSetting['options']['source'] === 'ipak_kbli') {
+                $kbliId = trim((string) $this->input->post($inputName, true));
+                if ($kbliId !== '' && (!ctype_digit($kbliId) || !$this->ipak->get_kbli_by_id((int) $kbliId))) {
+                    $this->session->set_flashdata('old', $this->input->post(NULL, true));
+                    $this->session->set_flashdata('validation_errors', [$inputName => 'Pilihan KBLI tidak ditemukan atau sudah tidak tersedia.']);
+                    return redirect($this->survey_url($resi, $formCode));
+                }
+                continue;
+            }
             if ($fieldSetting['field_type'] !== 'select' || empty($fieldSetting['options'])) {
                 continue;
             }
             $selectedValue = trim((string) $this->input->post($inputName, true));
-            if ($selectedValue !== '' && !in_array($selectedValue, $fieldSetting['options'], true)) {
+            $allowedValues = [];
+            foreach ($fieldSetting['options'] as $option) {
+                $allowedValues[] = is_array($option) && isset($option['value'])
+                    ? (string) $option['value']
+                    : (string) $option;
+            }
+            if ($selectedValue !== '' && !in_array($selectedValue, $allowedValues, true)) {
                 $this->session->set_flashdata('old', $this->input->post(NULL, true));
                 $this->session->set_flashdata('validation_errors', [
                     $inputName => 'Pilihan untuk ' . $fieldSetting['field_label'] . ' tidak valid.',
@@ -323,7 +361,6 @@ class Survey extends CI_Controller
         $jobVisible = !empty($fieldSettings['job']) && $fieldSettings['job']['field_mode'] !== 'hidden';
         $serviceVisible = !empty($fieldSettings['service']) && $fieldSettings['service']['field_mode'] !== 'hidden';
         $job = $jobVisible ? (int) $this->input->post('job', true) : 0;
-        $jobOther = trim((string) $this->input->post('job_other', true));
 
         if ($jobVisible && $job === 5 && $jobOther === '') {
             $this->session->set_flashdata('old', $this->input->post(NULL, true));
@@ -350,16 +387,59 @@ class Survey extends CI_Controller
         $permitNib = $requiresResi ? trim((string) $permit['nib']) : '';
         $identityNumber = trim((string) $this->input->post('identity_number', true));
         $defaultUnit = $requiresResi ? [] : $this->ipak->default_regular_unit();
-        $selectedSectorName = (!$requiresResi && $service > 0 && isset($sectorOptions[$service]))
-            ? $sectorOptions[$service]
-            : '';
+        $selectedSectorName = '';
+        if (!$requiresResi && $service > 0) {
+            if (!empty($fieldSettings['service']['options'])) {
+                foreach ($fieldSettings['service']['options'] as $option) {
+                    if (is_array($option) && isset($option['value'], $option['label']) && (int) $option['value'] === $service) {
+                        $selectedSectorName = $option['label'];
+                        break;
+                    }
+                }
+            } elseif (isset($sectorOptions[$service])) {
+                $selectedSectorName = $sectorOptions[$service];
+            }
+        }
         $responseFields = [];
+        foreach (['gender', 'education', 'job', 'service'] as $fieldKey) {
+            if (empty($fieldSettings[$fieldKey]['options'])) {
+                continue;
+            }
+            $selectedValue = trim((string) $this->input->post($fieldKey, true));
+            foreach ($fieldSettings[$fieldKey]['options'] as $option) {
+                if (!is_array($option) || !isset($option['value'], $option['label'])) {
+                    continue;
+                }
+                if ((string) $option['value'] !== $selectedValue) {
+                    continue;
+                }
+                $responseFields[] = [
+                    'field_key' => $fieldKey,
+                    'field_label' => $fieldSettings[$fieldKey]['field_label'],
+                    'field_group' => 'identity',
+                    'field_value' => $option['label'],
+                ];
+                break;
+            }
+        }
         foreach ($extraFieldSettings as $inputName => $fieldSetting) {
+            $fieldValue = trim((string) $this->input->post($inputName, true));
+            if (!empty($fieldSetting['options']['source']) && $fieldSetting['options']['source'] === 'ipak_kbli' && $fieldValue !== '') {
+                $kbliRow = $this->ipak->get_kbli_by_id((int) $fieldValue);
+                if ($kbliRow) {
+                    $fieldValue = json_encode([
+                        'kbli_id' => (int) $kbliRow['id'],
+                        'kode' => (string) $kbliRow['kode'],
+                        'kode_gabungan' => (string) $kbliRow['kode_gabungan'],
+                        'display_value' => $this->ipak->kbli_option_label($kbliRow, $fieldSetting['options']),
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                }
+            }
             $responseFields[] = [
                 'field_key' => $fieldSetting['field_key'],
                 'field_label' => $fieldSetting['field_label'],
                 'field_group' => $fieldSetting['field_group'],
-                'field_value' => trim((string) $this->input->post($inputName, true)),
+                'field_value' => $fieldValue,
             ];
         }
 
