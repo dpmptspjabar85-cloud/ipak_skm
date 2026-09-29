@@ -220,7 +220,7 @@ $choiceOptions = isset($choice_options) ? $choice_options : [
             <div class="choice-value-heading"><strong>Pengaturan pilihan KBLI</strong><small>Responden memilih satu baris katalog. Nilai formulir tetap terhubung ke record KBLI.</small></div>
             <label class="choice-value-mode">Kode utama<select name="identity_kbli[code_field]"><option value="kode_gabungan" <?= $selectedKbliCodeField === 'kode_gabungan' ? 'selected' : '' ?>>Kode Gabungan</option><option value="kode" <?= $selectedKbliCodeField === 'kode' ? 'selected' : '' ?>>Kode</option></select></label>
             <div class="kbli-display-columns"><strong>Informasi yang ditampilkan ke responden</strong><small>Pilih satu atau lebih. Kode utama tetap ditampilkan sebagai identitas opsi.</small>
-              <div class="choice-grid">
+              <input type="search" class="choice-search" placeholder="Cari kolom KBLI…" data-filter=".choice-card"><div class="choice-grid">
                 <?php foreach ($kbli_display_columns as $columnKey => $columnLabel): ?>
                   <label class="choice-card"><input type="checkbox" name="identity_kbli[display_columns][]" value="<?= html_escape($columnKey) ?>" <?= in_array($columnKey, $selectedKbliColumns, true) ? 'checked' : '' ?>><span><?= html_escape($columnLabel) ?></span></label>
                 <?php endforeach; ?>
@@ -303,15 +303,16 @@ $choiceOptions = isset($choice_options) ? $choice_options : [
     </div>
 
     <div class="builder-subsection">
-      <div class="builder-subsection-head">
-        <div>
-          <h3>Pilih pertanyaan yang sudah ada</h3>
-          <p>Pertanyaan dapat digunakan kembali pada beberapa survei. Pilih sesuai kebutihan survei baru.</p>
+        <div class="builder-subsection-head">
+          <div>
+            <h3>Pilih pertanyaan yang sudah ada</h3>
+            <p>Pertanyaan dapat digunakan kembali pada beberapa survei. Pilih sesuai kebutihan survei baru.</p>
+          </div>
+          <span class="badge"><?= count($available_questions) ?> tersedia</span>
         </div>
-        <span class="badge"><?= count($available_questions) ?> tersedia</span>
-      </div>
-      <?php if ($available_questions): ?>
-        <div class="builder-question-library">
+        <?php if ($available_questions): ?>
+          <div class="builder-question-library">
+            <input type="search" class="choice-search" placeholder="Cari pertanyaan…" data-filter=".builder-question-option">
           <?php foreach ($available_questions as $questionId => $question): ?>
             <label class="builder-question-option">
               <input type="checkbox" name="question_ids[]" value="<?= (int) $questionId ?>" <?= in_array((int) $questionId, $oldQuestionIds, true) ? 'checked' : '' ?>>

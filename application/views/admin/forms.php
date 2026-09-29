@@ -389,5 +389,12 @@ $formGroups = $form_type === 'primary'
     selectedForm.open = true;
     selectedForm.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
-}());
+
+  var editLinks = document.querySelectorAll('a[href*="admin/forms/edit/"]');
+  editLinks.forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.stopPropagation();
+    });
+  });
+})();
 </script>

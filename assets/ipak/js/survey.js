@@ -96,4 +96,95 @@
     if (invalidIndex >= 0) current = invalidIndex;
   }
   showStep(current);
+
+  /* Searchable dropdown for <select> elements */
+  function makeSearchable(select) {
+    if (select.classList.contains('searchable-select-hidden')) return;
+    var originalId = select.id;
+    var isRequired = select.hasAttribute('required');
+    var container = document.createElement('div');
+    container.className = 'searchable-select';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'searchable-select-input';
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('placeholder', 'Pilih atau cari…');
+    if (isRequired) input.required = true;
+
+    var dropdown = document.createElement('div');
+    dropdown.className = 'searchable-select-dropdown';
+
+    var caret = document.createElement('span');
+    caret.className = 'searchable-select-caret';
+
+    select.classList.add('searchable-select-hidden');
+    select.parentNode.insertBefore(container, select);
+    container.appendChild(input);
+    container.appendChild(dropdown);
+    container.appendChild(caret);
+    if (originalId) input.id = originalId + '-search';
+
+    var options = Array.prototype.slice.call(select.querySelectorAll('option'));
+
+    function renderOptions() {
+      dropdown.innerHTML = '';
+      options.forEach(function (opt) {
+        var item = document.createElement('div');
+        item.className = 'searchable-select-option';
+        item.textContent = opt.text;
+        item.dataset.value = opt.value;
+        item.addEventListener('click', function () {
+          select.value = opt.value;
+          input.value = opt.text;
+          dropdown.style.display = 'none';
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        dropdown.appendChild(item);
+      });
+    }
+
+    renderOptions();
+
+    input.addEventListener('focus', function () {
+      dropdown.style.display = 'block';
+    });
+
+    input.addEventListener('input', function () {
+      var keyword = input.value.toLowerCase();
+      var items = dropdown.querySelectorAll('.searchable-select-option');
+      items.forEach(function (item) {
+        item.style.display = item.textContent.toLowerCase().indexOf(keyword) !== -1
+          ? 'block'
+          : 'none';
+      });
+    });
+
+    var firstOption = options[0];
+    if (firstOption && !firstOption.value) {
+      firstOption = options[0];
+    }
+
+    var syncFromSelect = function () {
+      var selected = select.options[select.selectedIndex];
+      if (selected && selected.value !== '') {
+        input.value = '';
+        input.setAttribute('placeholder', selected.text);
+      } else {
+        input.value = '';
+        input.setAttribute('placeholder', 'Pilih atau cari…');
+      }
+    };
+
+    syncFromSelect();
+    select.addEventListener('change', syncFromSelect);
+
+    document.addEventListener('click', function (e) {
+      if (!container.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
+
+  Array.prototype.slice.call(form.querySelectorAll('select')).forEach(makeSearchable);
 })();

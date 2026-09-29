@@ -1,8 +1,27 @@
 (function () {
   'use strict';
 
+  function initChoiceSearch(container) {
+    var search = container.querySelector('.choice-search');
+    if (!search) return;
+    var targetSelector = search.getAttribute('data-filter') || '.choice-card, .builder-question-option';
+    var filterFn = function () {
+      var term = search.value.trim().toLowerCase();
+      var items = container.querySelectorAll(targetSelector);
+      items.forEach(function (item) {
+        var text = item.textContent.toLowerCase();
+        item.hidden = term !== '' && text.indexOf(term) === -1;
+      });
+    };
+    search.addEventListener('input', filterFn);
+    filterFn();
+  }
+
   var form = document.getElementById('form-builder');
   if (!form) return;
+
+  var choiceContainers = form.querySelectorAll('.kbli-display-columns, .builder-question-library');
+  choiceContainers.forEach(initChoiceSearch);
 
   var steps = Array.prototype.slice.call(form.querySelectorAll('[data-builder-step]'));
   var progressItems = Array.prototype.slice.call(document.querySelectorAll('[data-step-jump]'));
