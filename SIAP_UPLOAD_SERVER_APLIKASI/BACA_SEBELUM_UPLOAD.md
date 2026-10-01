@@ -92,6 +92,43 @@ Bila helper tersebut belum terupload, halaman tetap berjalan normal karena
 seluruh pemanggilan `ipak_asset()` pada view sudah dibungkus
 `function_exists()`.
 
+## Error 403 "The action you have requested is not allowed." saat mengirim survei
+
+Halaman ini muncul dari `system/core/Security.php::csrf_show_error()`, yaitu
+penolakan CSRF, bukan error pada jawaban yang diisi.
+
+Penyebabnya `csrf_regenerate = TRUE`. Setiap POST yang berhasil mengganti cookie
+token, sehingga halaman yang sudah terbuka lama memakai token yang tidak lagi
+cocok. Tombol kirim yang ditekan dua kali atau koneksi yang diulang sudah
+cukup untuk memicu 403 padahal isiannya valid.
+
+Perbaikan pada `application/config/config.php`:
+
+`$config['csrf_regenerate'] = FALSE;`
+
+Baris ini **wajib** terupload. Bila `config.php` di server sudah diubah manual,
+cukup ganti nilai tersebut tanpa mengubah bagian `base_url` yang lain.
+
+Proteksi CSRF tetap berfungsi penuh: token tetap harus cocok dengan cookie
+`HttpOnly`, sehingga POST dari situs lain tetap ditolak. Yang hilang hanya
+rotasi token, dan token sudah kedaluwarsa sendiri setelah `csrf_expire`.
+
+Sebagai lapis kedua, halaman 403 kini ditampilkan dengan bahasa sendiri
+beserta tombol untuk membuka kembali formulir yang sama, bukan pesan teknis
+CodeIgniter:
+
+`application/views/errors/html/error_general.php`
+
+## Aside: setelah selesai mengisi survey
+
+Berkas yang ikut terupload untuk perbaikan ini:
+
+`application/config/config.php`
+
+`application/views/errors/html/error_general.php`
+
+`assets/ipak/js/survey.js`
+
 ## Cara memastikan pencarian benar-benar terupload
 
 Buka langsung di browser:

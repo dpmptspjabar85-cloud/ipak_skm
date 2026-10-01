@@ -484,7 +484,21 @@ $config['csrf_protection'] = TRUE;
 $config['csrf_token_name'] = 'ipak_csrf_token';
 $config['csrf_cookie_name'] = 'ipak_csrf_cookie';
 $config['csrf_expire'] = 7200;
-$config['csrf_regenerate'] = TRUE;
+
+/*
+| Token tidak dirotasi setiap POST.
+|
+| Jika csrf_regenerate = TRUE, cookie token diganti setiap kali POST berhasil.
+| Halaman survei berisi banyak langkah dan sering memerlukan waktu lama, sehingga
+| token yang tertanam di halaman bisa saja sudah kedaluwarsa ketika tombol kirim
+| ditekan dua kali atau koneksi diulang. Akibatnya responden menerima 403
+| "The action you have requested is not allowed." padahal isiannya valid.
+|
+| Proteksi CSRF tetap berjalan penuh: token tetap harus cocok dengan cookie
+| HttpOnly, sehingga permintaan dari situs lain tetap ditolak. Yang hilang hanya
+| rotasi token, dan token sudah kedaluwarsa sendiri setelah csrf_expire.
+*/
+$config['csrf_regenerate'] = FALSE;
 $config['csrf_exclude_uris'] = array();
 
 /*

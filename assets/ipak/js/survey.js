@@ -121,16 +121,29 @@
 
   conditionalInput('job', 'job_other', '5');
 
+  var submitting = false;
+
   form.addEventListener('submit', function (event) {
+    // Guard against a second submit while the first is still in flight. A
+    // double click or a retried connection used to send the form twice, and the
+    // second POST was rejected as a forged request.
+    if (submitting) {
+      event.preventDefault();
+      return;
+    }
     if (!validateStep(steps[current])) {
       event.preventDefault();
       return;
     }
+    submitting = true;
     var button = form.querySelector('[type="submit"]');
     if (button) {
       button.disabled = true;
       button.textContent = 'Menyimpan...';
     }
+    window.setTimeout(function () {
+      submitting = false;
+    }, 8000);
   });
 
   var invalid = form.querySelector('.field-error');
