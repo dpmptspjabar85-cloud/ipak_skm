@@ -8,6 +8,87 @@ class Ipaksurvey_model extends CI_Model
     private $allResponsesView = 'ipak_all_responses';
     private $formPublicVisibilitySupported = null;
 
+    /**
+     * Masa berlaku cache pemeriksaan struktur tabel (detik).
+     *
+     * Pemeriksaan ini hanya concerned dengan skema, bukan data, sehingga
+     * достаточно disimpan singkat. Setelah migration dijalankan, cache akan
+     * kedaluwarsa sendiri tanpa perlu penghapusan manual.
+     */
+    const SCHEMA_CACHE_TTL = 3600;
+
+    /**
+     * Cache pemeriksaan struktur tabel dengan basis berkas.
+     *
+     * Query ke INFORMATION_SCHEMA pada MySQL/MariaDB melakukan pemindaian
+     * metadata seluruh server sehingga sangat lambat pada hosting bersama.
+     * Karena create dan edit form memanggil sinkronisasi skema setiap kali,
+     * proses tersebut membuat halaman terasa menggantung. Cache berkas
+     * menghindari query yang sama pada request berikutnya.
+     *
+     * @param string $key
+     * @return mixed|null
+     */
+    private function schema_cache_get($key)
+    {
+        $path = $this->schema_cache_path($key);
+        if (!is_file($path) || !is_readable($path)) {
+            return null;
+        }
+        $raw = @file_get_contents($path);
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+        $payload = json_decode($raw, true);
+        if (!is_array($payload) || !array_key_exists('value', $payload)) {
+            return null;
+        }
+        $expiresAt = isset($payload['expires']) ? (int) $payload['expires'] : 0;
+        if ($expiresAt > 0 && $expiresAt < time()) {
+            return null;
+        }
+        return $payload['value'];
+    }
+
+    /**
+     * @param string $key
+     * @param mixed  $value
+     * @return void
+     */
+    private function schema_cache_set($key, $value)
+    {
+        $path = $this->schema_cache_path($key);
+        $directory = dirname($path);
+        if (!is_dir($directory) || !is_writable($directory)) {
+            return;
+        }
+        $payload = json_encode([
+            'created' => time(),
+            'expires' => time() + self::SCHEMA_CACHE_TTL,
+            'value' => $value,
+        ]);
+        if ($payload === false) {
+            return;
+        }
+        $temporary = $path . '.' . getmypid() . '.tmp';
+        if (@file_put_contents($temporary, $payload) === false) {
+            return;
+        }
+        @rename($temporary, $path);
+    }
+
+    /**
+     * @param string $key
+     * @return string
+     */
+    private function schema_cache_path($key)
+    {
+        $directory = defined('APPPATH')
+            ? APPPATH . 'cache' . DIRECTORY_SEPARATOR
+            : '';
+        return $directory . 'ipak_schema_' . preg_replace('/[^a-z0-9_]/', '', strtolower($key)) . '.json';
+    }
+
     private function supports_form_public_visibility()
     {
         if ($this->formPublicVisibilitySupported === null) {
@@ -59,6 +140,16 @@ class Ipaksurvey_model extends CI_Model
             'indexes_created' => [], 'indexes_existed' => [],
             'errors' => [],
         ];
+
+        // Pemeriksaan struktur hanya perlu dijalankan ulang setelah cache habis
+        // masa berlakunya. Tanpa ini setiap buka halaman create/edit form
+        // menjalankan dua query INFORMATION_SCHEMA yang lambat.
+        $cacheKey = 'kbli_schema_' . $this->db->database;
+        $cached = $this->schema_cache_get($cacheKey);
+        if (is_array($cached) && empty($cached['errors'])) {
+            return $cached;
+        }
+
         if (!$this->db->table_exists($tableName)) {
             try {
                 $this->db->query($this->build_create_table_sql($tableName, $tableDef));
@@ -122,6 +213,9 @@ class Ipaksurvey_model extends CI_Model
             } catch (Exception $e) {
                 $results['errors'][] = 'Tidak dapat membuat index ' . $tableName . '.' . $indexName . ': ' . $e->getMessage();
             }
+        }
+        if (empty($results['errors'])) {
+            $this->schema_cache_set($cacheKey, $results);
         }
         return $results;
     }
@@ -1701,6 +1795,12 @@ class Ipaksurvey_model extends CI_Model
 
     private function ensure_shared_question_schema()
     {
+        $cacheKey = 'shared_question_unique_index';
+        $cached = $this->schema_cache_get($cacheKey);
+        if ($cached !== null) {
+            return (bool) $cached;
+        }
+
         $row = $this->db
             ->query(
                 "SELECT COUNT(*) AS total
@@ -1712,12 +1812,15 @@ class Ipaksurvey_model extends CI_Model
             ->row_array();
 
         if (empty($row['total'])) {
+            $this->schema_cache_set($cacheKey, true);
             return true;
         }
 
-        return (bool) $this->db->query(
+        $dropped = (bool) $this->db->query(
             'ALTER TABLE ipak_survey_questions DROP INDEX uq_ipak_question_single_survey'
         );
+        $this->schema_cache_set($cacheKey, $dropped);
+        return $dropped;
     }
 
     public function get_form_survey_ids($formId)

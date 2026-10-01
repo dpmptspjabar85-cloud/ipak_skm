@@ -1360,6 +1360,17 @@ class Admin extends CI_Controller
         $newQuestionInput = is_array($newQuestionInput) ? $newQuestionInput : [];
         $newQuestions = [];
         $questionSequence = 0;
+
+        /*
+         * get_questions() memuat seluruh pertanyaan beserta seluruh pilihan
+         * jawabannya. Memanggilnya di dalam loop membuat satu pemindaian penuh
+         * per pertanyaan baru, sehingga penyimpanan melambat seiring bertambahnya
+         * pertanyaan. Cukup dihitung satu kali di luar loop.
+         */
+        $existingQuestionCount = $newQuestionInput
+            ? count($this->ipak->get_questions(false))
+            : 0;
+
         foreach ($newQuestionInput as $questionIndex => $questionInput) {
             if (!is_array($questionInput)) {
                 continue;
@@ -1409,7 +1420,7 @@ class Admin extends CI_Controller
                     'measurement_name' => $measurementName,
                     'category_name' => $categoryName,
                     'weight' => isset($questionInput['weight']) ? max(0.01, (float) $questionInput['weight']) : 1,
-                    'sort_order' => count($this->ipak->get_questions(false)) + $questionSequence,
+                    'sort_order' => $existingQuestionCount + $questionSequence,
                     'is_active' => true,
                 ],
                 'options' => $options,
