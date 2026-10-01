@@ -22,6 +22,7 @@ $route['admin/dashboard'] = 'admin/dashboard';
 $route['admin/responses'] = 'admin/responses';
 $route['admin/responses/(:any)'] = 'admin/detail/$1';
 $route['admin/export'] = 'admin/export';
+$route['admin/export-excel'] = 'admin/export_excel';
 $route['admin/questions'] = 'admin/questions';
 $route['admin/questions/create'] = 'admin/create_question';
 $route['admin/surveys'] = 'admin/surveys';

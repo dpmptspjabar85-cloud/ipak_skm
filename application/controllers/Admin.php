@@ -391,6 +391,233 @@ class Admin extends CI_Controller
         exit;
     }
 
+    /**
+     * Export Data Responden ke Excel (.xls).
+     *
+     * Memakai filters() yang sama persis dengan halaman Data Responden, dan
+     * relasi jawaban yang sama dengan halaman detail, sehingga isi berkas
+     * adalah representasi langsung dari tabel yang sedang ditampilkan:
+     * identitas, tanggal, layanan milik responden itu sendiri, lalu seluruh
+     * pertanyaan beserta jawaban milik survei yang benar-benar diisi.
+     *
+     * @return void
+     */
+    public function export_excel()
+    {
+        $this->require_login();
+        $filters = $this->filters();
+        $bundle = $this->ipak->get_response_export_bundle($filters);
+
+        $education = $this->config->item('ipak_education');
+        $jobs = $this->config->item('ipak_jobs');
+        $services = $this->ipak->sector_options();
+        $unitNames = $this->ipak->unit_options();
+
+        // Layanan yang ditampilkan selalu milik baris tersebut, bukan master.
+        $detailRows = [];
+        $summaryRows = [];
+        $number = 0;
+
+        foreach ($bundle as $entry) {
+            $row = $entry['response'];
+            $meta = $this->ipak->decode_metadata($row['keterangan']);
+            $service = $this->response_service_label($row, $meta, $services);
+            $identity = $this->response_identity_label($row, $meta, $education, $jobs, $unitNames);
+            $surveyDate = !empty($row['tgl_buat']) ? $row['tgl_buat'] : $row['tgl_pengisian'];
+            $responseRef = trim(
+                (string) $row['resi'] !== ''
+                    ? $row['resi']
+                    : (string) $row['kode']
+            );
+
+            $summaryRows[] = [
+                $responseRef,
+                $surveyDate,
+                $identity,
+                $service,
+                $entry['survey_name'],
+                (string) $entry['survey_code'],
+                (string) $entry['form_name'],
+                number_format((float) $entry['score'], 2, '.', ''),
+                (string) $entry['category_label'],
+                count($entry['items']),
+            ];
+
+            foreach ($entry['items'] as $item) {
+                $number++;
+                $detailRows[] = [
+                    $number,
+                    $responseRef,
+                    $surveyDate,
+                    $identity,
+                    $service,
+                    $entry['survey_name'],
+                    trim((string) $item['question_code'] . ' - ' . $item['question_text']),
+                    (string) $item['option_label'],
+                    (string) $item['option_code'],
+                    number_format((float) $item['option_value'], 2, '.', ''),
+                ];
+            }
+        }
+
+        $filterNotes = $this->excel_filter_notes($filters);
+        $generatedAt = date('d-m-Y H:i:s');
+
+        $this->load->library('Excel_writer');
+        $excel = new Excel_writer();
+
+        $excel->add_sheet(
+            'Data Responden',
+            ['No', 'Referensi', 'Tanggal Survey', 'Identitas Responden', 'Layanan', 'Survei', 'Pertanyaan', 'Jawaban', 'Kode Opsi', 'Nilai Opsi'],
+            $detailRows,
+            [
+                'title' => 'Data Responden - ' . $generatedAt,
+                'widths' => [50, 120, 110, 300, 200, 180, 420, 300, 80, 90],
+                'freeze' => true,
+            ]
+        );
+
+        $excel->add_sheet(
+            'Ringkasan Responden',
+            ['Referensi', 'Tanggal Survey', 'Identitas Responden', 'Layanan', 'Survei', 'Kode Survei', 'Form', 'Nilai', 'Kategori', 'Jumlah Jawaban'],
+            $summaryRows,
+            [
+                'title' => 'Ringkasan per responden/survei - ' . $generatedAt,
+                'widths' => [120, 110, 300, 200, 180, 120, 180, 90, 130, 120],
+                'freeze' => true,
+            ]
+        );
+
+        $excel->add_sheet(
+            'Filter Export',
+            ['Kriteria', 'Nilai'],
+            array_merge(
+                [['Kriteria' => 'Waktu dibuat', 'Nilai' => $generatedAt]],
+                [['Kriteria' => 'Jumlah baris data', 'Nilai' => count($detailRows)]],
+                [['Kriteria' => 'Jumlah responden', 'Nilai' => count($summaryRows)]],
+                $filterNotes
+            ),
+            [
+                'title' => 'Filter aktif pada saat export dibuat',
+                'widths' => [260, 320],
+            ]
+        );
+
+        $excel->download('data-responden-' . date('Ymd-His') . '.xls');
+    }
+
+    /**
+     * Label layanan milik satu responden.
+     *
+     * Tidak pernah menampilkan seluruh master layanan: yang dipakai hanya
+     * nama layanan yang terpasang pada baris tersebut.
+     *
+     * @param  array $row
+     * @param  array $meta
+     * @param  array $services
+     * @return string
+     */
+    private function response_service_label(array $row, array $meta, array $services)
+    {
+        if (!empty($meta['sector_name'])) {
+            return (string) $meta['sector_name'];
+        }
+        if (!empty($meta['service_other'])) {
+            return (string) $meta['service_other'];
+        }
+        $sectorId = (int) $row['sektor'];
+        return $sectorId > 0 && isset($services[$sectorId])
+            ? (string) $services[$sectorId]
+            : '-';
+    }
+
+    /**
+     * Identitas responden dalam satu sel yang mudah dibaca.
+     *
+     * @param  array $row
+     * @param  array $meta
+     * @param  array $education
+     * @param  array $jobs
+     * @param  array $unitNames
+     * @return string
+     */
+    private function response_identity_label(array $row, array $meta, array $education, array $jobs, array $unitNames)
+    {
+        $parts = [];
+        $name = trim((string) $row['nama_responden']);
+        $parts[] = 'Nama: ' . ($name !== '' ? $name : '-');
+
+        $email = !empty($meta['email']) ? trim((string) $meta['email']) : trim((string) $row['responden']);
+        if ($email !== '') {
+            $parts[] = 'Surel: ' . $email;
+        }
+        $phone = trim((string) $row['mobile']);
+        if ($phone !== '') {
+            $parts[] = 'Telepon: ' . $phone;
+        }
+        $identityNumber = trim((string) $row['nib']);
+        if ($identityNumber !== '') {
+            $permitType = trim((string) $row['jenis_ijin']);
+            $parts[] = ($permitType !== '' && $permitType !== '0')
+                ? $permitType . ': ' . $identityNumber
+                : 'Nomor Identitas: ' . $identityNumber;
+        }
+        if ((int) $row['usia'] > 0) {
+            $parts[] = 'Usia: ' . (int) $row['usia'];
+        }
+        $gender = (int) $row['gender'];
+        if ($gender === 1 || $gender === 2) {
+            $parts[] = 'Jenis Kelamin: ' . ($gender === 1 ? 'Laki-laki' : 'Perempuan');
+        }
+        $educationId = (int) $row['pendidikan_id'];
+        if (isset($education[$educationId])) {
+            $parts[] = 'Pendidikan: ' . $education[$educationId];
+        }
+        $jobId = (int) $row['pekerjaan_id'];
+        if ($jobId === 5 && !empty($meta['job_other'])) {
+            $parts[] = 'Pekerjaan: ' . $meta['job_other'];
+        } elseif (isset($jobs[$jobId])) {
+            $parts[] = 'Pekerjaan: ' . $jobs[$jobId];
+        }
+        $unitId = isset($meta['unit_id']) ? (int) $meta['unit_id'] : 0;
+        if ($unitId > 0 && isset($unitNames[$unitId])) {
+            $parts[] = 'Perangkat Daerah: ' . $unitNames[$unitId];
+        }
+        return implode(' | ', $parts);
+    }
+
+    /**
+     * Ringkasan filter aktif, ditulis sebagai sheet agar export dapat
+     * diaudit terhadap tabel yang sedang ditampilkan.
+     *
+     * @param  array $filters
+     * @return array
+     */
+    private function excel_filter_notes(array $filters)
+    {
+        $labels = [
+            'date_from' => 'Dari tanggal',
+            'date_to' => 'Sampai tanggal',
+            'survey_id' => 'ID Survei',
+            'survey_type' => 'Jenis data',
+            'gender' => 'Jenis kelamin',
+            'education' => 'Pendidikan',
+            'job' => 'Pekerjaan',
+            'service' => 'Layanan',
+            'unit_id' => 'ID Perangkat Daerah',
+            'keyword' => 'Kata kunci',
+        ];
+        $notes = [];
+        foreach ($labels as $key => $label) {
+            $value = isset($filters[$key]) ? $filters[$key] : '';
+            if ($value === '' || $value === null) {
+                continue;
+            }
+            $notes[] = ['Kriteria' => $label, 'Nilai' => (string) $value];
+        }
+        return $notes;
+    }
+
     public function questions()
     {
         $this->require_login();

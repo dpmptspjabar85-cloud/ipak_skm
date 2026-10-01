@@ -3466,6 +3466,409 @@ class Ipaksurvey_model extends CI_Model
         return $rows;
     }
 
+    /**
+     * Daftar respons sesuai filter tanpa paginasi, memakai kolom eksplisit.
+     *
+     * Relasi, urutan, dan kolom disamakan dengan get_responses() supaya hasil
+     * export sama persis dengan tabel di halaman Data Responden. Perbedaannya
+     * hanya tanpa LIMIT dan tanpa SELECT *, karena seluruh kolom tabel respons
+     * tidak pernah dibutuhkan oleh export.
+     *
+     * @param  array $filters
+     * @return array
+     */
+    public function get_responses_for_excel(array $filters = [])
+    {
+        $surveyId = isset($filters['survey_id']) ? (int) $filters['survey_id'] : 0;
+        $orderPrefix = '';
+        if ($surveyId > 0 && $this->is_legacy_skm_survey($surveyId)) {
+            $this->db
+                ->select($this->response_select_columns('s', 'SKM'), false)
+                ->from($this->table . ' s')
+                ->where('s.flag_skm', 1);
+            $this->apply_filters($filters, 's');
+            $orderPrefix = 's.';
+        } elseif ($surveyId > 0) {
+            $this->db
+                ->select($this->response_select_columns('s', 'SURVEY') . ',r.score AS filtered_score', false)
+                ->from('ipak_submission_surveys r')
+                ->join($this->flexResponseTable . ' s', 's.kode = r.flex_response_id', 'inner')
+                ->where('r.survey_id', $surveyId);
+            $this->apply_filters($filters, 's');
+            $orderPrefix = 's.';
+        } else {
+            $this->db
+                ->select($this->response_select_columns('', ''))
+                ->from($this->allResponsesView);
+            $this->apply_filters($filters);
+        }
+        $rows = $this->db
+            ->order_by('COALESCE(' . $orderPrefix . 'tgl_buat, CONCAT(' . $orderPrefix . "tgl_pengisian, ' 00:00:00'))", 'DESC', false)
+            ->order_by($orderPrefix . 'kode', 'DESC')
+            ->get()
+            ->result_array();
+        foreach ($rows as $index => $row) {
+            $rows[$index] = $this->attach_response_identity($row);
+        }
+        return $rows;
+    }
+
+    /**
+     * Daftar kolom respons yang dibutuhkan export.
+     *
+     * Dipisah agar get_responses() dan get_responses_for_excel() memakai kolom
+     * yang sama persis, sehingga data tabel dan data export tidak pernah beda.
+     *
+     * @param  string $alias      Prefix kolom, misal 's'.
+     * @param  string $source     Label sumber respons ('SKM'/'SURVEY'), kosong
+     *                            bila kolomnya sudah ada di view.
+     * @return string
+     */
+    private function response_select_columns($alias = '', $source = '')
+    {
+        $prefix = $alias !== '' ? $alias . '.' : '';
+        $columns = [
+            'kode', 'nib', 'resi', 'permohonan_id', 'jenis_ijin', 'nama_responden',
+            'responden', 'mobile', 'gender', 'usia', 'pendidikan_id', 'pekerjaan_id',
+            'sektor', 'tgl_pengisian', 'tgl_buat', 'rata', 'saran', 'keterangan',
+            'jenis_survei', 'kode_survei_unik', 'kode_pengisian', 'versi_survei',
+            'is_legacy_skm', 'flag_skm',
+        ];
+        $selected = [];
+        foreach ($columns as $column) {
+            $selected[] = $prefix . $column;
+        }
+        $selected[] = $source !== ''
+            ? "'" . $source . "' AS response_source"
+            : 'response_source';
+        return implode(',', $selected);
+    }
+
+    /**
+     * Menyusun paket data export untuk sekumpulan respons sekaligus.
+     *
+     * Semua pertanyaan, jawaban, dan layanan diambil per respons memakai
+     * relasi yang sama dengan halaman detail: ipak_submission_surveys untuk
+     * survei yang benar-benar diisi, lalu ipak_submission_survey_answers dan
+     * ipak_response_answers untuk jawaban milik survei tersebut. Tidak ada
+     * master pertanyaan, master layanan, atau jawaban responden lain yang
+     * ikut terbawa.
+     *
+     * Kueri dijalankan per batches, bukan per baris, sehingga jumlah query
+     * tetap handful berapa pun jumlah respons.
+     *
+     * @param  array $filters
+     * @return array
+     */
+    public function get_response_export_bundle(array $filters = [])
+    {
+        $rows = $this->get_responses_for_excel($filters);
+        if (!$rows) {
+            return [];
+        }
+
+        $flexIds = [];
+        $skmIds = [];
+        foreach ($rows as $row) {
+            if ($row['response_source'] === 'SURVEY') {
+                $flexIds[] = (int) $row['kode'];
+            } else {
+                $skmIds[] = (int) $row['kode'];
+            }
+        }
+        $flexIds = $this->positive_ids($flexIds);
+        $skmIds = $this->positive_ids($skmIds);
+
+        $linksByResponse = $this->export_survey_links_by_response($flexIds, $skmIds);
+        $answersByResponseAndSurvey = $this->export_answers_by_response_and_survey($flexIds, $skmIds);
+
+        // Responden yang belum punya baris ipak_submission_surveys (data lama)
+        // tetap perlu ditampilkan: surjective-nya diambil dari identitasnya,
+        // lalu jawabannya dibaca langsung dan dibatasi pertanyaan survei itu.
+        $legacySurveyId = $this->legacy_skm_survey_id();
+        $fallbackNeeded = [];
+        foreach ($rows as $row) {
+            $key = $row['response_key'];
+            if (empty($linksByResponse[$key]) && $row['response_source'] === 'SKM') {
+                $fallbackNeeded[] = $row;
+            }
+        }
+        $fallbackAnswers = $this->export_legacy_fallback_answers($fallbackNeeded, $legacySurveyId, $linksByResponse);
+        foreach ($fallbackAnswers as $groupKey => $answerMap) {
+            if (!isset($answersByResponseAndSurvey[$groupKey])) {
+                $answersByResponseAndSurvey[$groupKey] = $answerMap;
+            }
+        }
+
+        $surveyQuestionCache = [];
+        $bundle = [];
+        foreach ($rows as $row) {
+            $key = $row['response_key'];
+            $source = $row['response_source'];
+            $links = isset($linksByResponse[$key]) ? $linksByResponse[$key] : [];
+
+            foreach ($links as $link) {
+                $surveyId = (int) $link['survey_id'];
+                if ($surveyId < 1) {
+                    continue;
+                }
+                if (!array_key_exists($surveyId, $surveyQuestionCache)) {
+                    $surveyQuestionCache[$surveyId] = $this->get_survey_question_ids($surveyId);
+                }
+                $allowedQuestions = $surveyQuestionCache[$surveyId];
+                $linkKey = $key . '|' . $surveyId;
+                $answerMap = isset($answersByResponseAndSurvey[$linkKey])
+                    ? $answersByResponseAndSurvey[$linkKey]
+                    : [];
+
+                $items = [];
+                foreach ($answerMap as $questionId => $answer) {
+                    // Pengaman terakhir: jawaban harus milik pertanyaan yang
+                    // memang terdaftar pada survei ini.
+                    if ($allowedQuestions && !in_array((int) $questionId, $allowedQuestions, true)) {
+                        continue;
+                    }
+                    $items[] = [
+                        'survey_id' => $surveyId,
+                        'survey_name' => $link['survey_name'],
+                        'index_label' => $link['index_label'],
+                        'question_id' => (int) $questionId,
+                        'question_code' => $answer['question_code'],
+                        'question_text' => $answer['question_text'],
+                        'option_label' => $answer['option_label'],
+                        'option_code' => $answer['option_code'],
+                        'option_value' => $answer['option_value'],
+                        'score' => $answer['normalized_score'],
+                    ];
+                }
+                usort($items, function ($a, $b) {
+                    return $a['question_id'] - $b['question_id'];
+                });
+
+                $bundle[] = [
+                    'response' => $row,
+                    'response_key' => $key,
+                    'source' => $source,
+                    'survey_id' => $surveyId,
+                    'survey_name' => $link['survey_name'],
+                    'survey_code' => $link['survey_code'],
+                    'index_label' => $link['index_label'],
+                    'form_name' => $link['form_name'],
+                    'score' => $link['score'],
+                    'category_label' => $link['category_label'],
+                    'items' => $items,
+                ];
+            }
+        }
+        return $bundle;
+    }
+
+    /**
+     * Survei yang benar-benar diisi tiap respons.
+     *
+     * @param  array $flexIds
+     * @param  array $skmIds
+     * @return array Kunci response_key.
+     */
+    private function export_survey_links_by_response(array $flexIds, array $skmIds)
+    {
+        if (!$flexIds && !$skmIds) {
+            return [];
+        }
+        $this->db
+            ->select(
+                'r.survey_id,r.flex_response_id,r.skm_data_id,r.score,r.category_label,r.answer_count,'
+                . 's.survey_name,s.survey_code,s.index_label,f.form_name',
+                false
+            )
+            ->from('ipak_submission_surveys r')
+            ->join('ipak_surveys s', 's.id = r.survey_id', 'inner')
+            ->join('ipak_forms f', 'f.id = r.form_id', 'inner');
+        $this->db->group_start();
+        if ($flexIds) {
+            $this->db->where_in('r.flex_response_id', $flexIds);
+        }
+        if ($flexIds && $skmIds) {
+            $this->db->or_where_in('r.skm_data_id', $skmIds);
+        } elseif ($skmIds) {
+            $this->db->where_in('r.skm_data_id', $skmIds);
+        }
+        $this->db->group_end();
+        $rows = $this->db
+            ->order_by('s.survey_name', 'ASC')
+            ->get()
+            ->result_array();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $flexId = (int) $row['flex_response_id'];
+            $skmId = (int) $row['skm_data_id'];
+            $key = $flexId > 0
+                ? $this->response_key($flexId, 'SURVEY')
+                : $this->response_key($skmId, 'SKM');
+            $result[$key][] = $row;
+        }
+        return $result;
+    }
+
+    /**
+     * Jawaban tiap respons, dikelompokkan per survei yang mengoleksinya.
+     *
+     * Diambil lewat ipak_submission_survey_answers sehingga sebuah jawaban
+     * hanya muncul pada survei tempat jawaban itu diberikan, bukan pada
+     * seluruh survei yang memakai pertanyaan yang sama.
+     *
+     * @param  array $flexIds
+     * @param  array $skmIds
+     * @return array Kunci "response_key|survey_id".
+     */
+    private function export_answers_by_response_and_survey(array $flexIds, array $skmIds)
+    {
+        if (!$flexIds && !$skmIds) {
+            return [];
+        }
+        $this->db
+            ->select(
+                'r.survey_id,r.flex_response_id,r.skm_data_id,ra.question_id,'
+                . 'ra.option_label_snapshot,ra.option_code_snapshot,ra.option_value_snapshot,'
+                . 'ra.normalized_score_snapshot,q.question_code,q.question_text,q.sort_order',
+                false
+            )
+            ->from('ipak_submission_survey_answers rsa')
+            ->join('ipak_submission_surveys r', 'r.id = rsa.survey_result_id', 'inner')
+            ->join('ipak_response_answers ra', 'ra.id = rsa.response_answer_id', 'inner')
+            ->join('ipak_questions q', 'q.id = ra.question_id', 'inner');
+        $this->db->group_start();
+        if ($flexIds) {
+            $this->db->where_in('r.flex_response_id', $flexIds);
+        }
+        if ($flexIds && $skmIds) {
+            $this->db->or_where_in('r.skm_data_id', $skmIds);
+        } elseif ($skmIds) {
+            $this->db->where_in('r.skm_data_id', $skmIds);
+        }
+        $this->db->group_end();
+        $rows = $this->db
+            ->order_by('q.sort_order', 'ASC')
+            ->order_by('ra.id', 'ASC')
+            ->get()
+            ->result_array();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $flexId = (int) $row['flex_response_id'];
+            $skmId = (int) $row['skm_data_id'];
+            $responseKey = $flexId > 0
+                ? $this->response_key($flexId, 'SURVEY')
+                : $this->response_key($skmId, 'SKM');
+            $groupKey = $responseKey . '|' . (int) $row['survey_id'];
+            $result[$groupKey][(int) $row['question_id']] = [
+                'question_code' => $row['question_code'],
+                'question_text' => $row['question_text'],
+                'option_label' => $row['option_label_snapshot'],
+                'option_code' => $row['option_code_snapshot'],
+                'option_value' => $row['option_value_snapshot'],
+                'normalized_score' => $row['normalized_score_snapshot'],
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     * Jawaban untuk respons lama yang belum punya baris ipak_submission_surveys.
+     *
+     * Data SKM lama menyimpan tautan survei secara tidak langsung. Survei
+     * tersebut disintesis dari identitas respons agar tetap bisa diekspor,
+     * dan jawabannya dibaca langsung lalu tetap dibatasi pertanyaan survei itu.
+     *
+     * @param  array $rows
+     * @param  int   $legacySurveyId
+     * @param  array $linksByResponse Diisi langsung agar baris survei berikut dipakai
+     *                            oleh pemanggil yang sama.
+     * @return array Kunci "response_key|survey_id".
+     */
+    private function export_legacy_fallback_answers(array $rows, $legacySurveyId, array &$linksByResponse)
+    {
+        $legacySurveyId = (int) $legacySurveyId;
+        if (!$rows || $legacySurveyId < 1) {
+            return [];
+        }
+        $skmIds = [];
+        foreach ($rows as $row) {
+            $skmIds[] = (int) $row['kode'];
+        }
+        $skmIds = $this->positive_ids($skmIds);
+        if (!$skmIds) {
+            return [];
+        }
+
+        $survey = $this->db
+            ->select('id,survey_name,survey_code,index_label')
+            ->where('id', $legacySurveyId)
+            ->limit(1)
+            ->get('ipak_surveys')
+            ->row_array();
+        if (empty($survey)) {
+            return [];
+        }
+
+        $answerRows = $this->db
+            ->select(
+                'ra.skm_data_id,ra.question_id,ra.option_label_snapshot,ra.option_code_snapshot,'
+                . 'ra.option_value_snapshot,ra.normalized_score_snapshot,q.question_code,q.question_text',
+                false
+            )
+            ->from('ipak_response_answers ra')
+            ->join('ipak_questions q', 'q.id = ra.question_id', 'inner')
+            ->where_in('ra.skm_data_id', $skmIds)
+            ->order_by('q.sort_order', 'ASC')
+            ->order_by('ra.id', 'ASC')
+            ->get()
+            ->result_array();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $key = $row['response_key'];
+            $linksByResponse[$key][] = [
+                'survey_id' => $legacySurveyId,
+                'flex_response_id' => null,
+                'skm_data_id' => (int) $row['kode'],
+                'score' => $row['rata'],
+                'category_label' => '',
+                'answer_count' => 0,
+                'survey_name' => $survey['survey_name'],
+                'survey_code' => $survey['survey_code'],
+                'index_label' => $survey['index_label'],
+                'form_name' => '',
+            ];
+            $groupKey = $key . '|' . $legacySurveyId;
+            foreach ($answerRows as $answer) {
+                if ((int) $answer['skm_data_id'] !== (int) $row['kode']) {
+                    continue;
+                }
+                $result[$groupKey][(int) $answer['question_id']] = [
+                    'question_code' => $answer['question_code'],
+                    'question_text' => $answer['question_text'],
+                    'option_label' => $answer['option_label_snapshot'],
+                    'option_code' => $answer['option_code_snapshot'],
+                    'option_value' => $answer['option_value_snapshot'],
+                    'normalized_score' => $answer['normalized_score_snapshot'],
+                ];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @param  array $ids
+     * @return array
+     */
+    private function positive_ids(array $ids)
+    {
+        $ids = array_map('intval', $ids);
+        return array_values(array_unique(array_filter($ids)));
+    }
+
     public function find_response($key, $responseSource = '')
     {
         $identity = $this->parse_response_key($key, $responseSource);

@@ -3,6 +3,7 @@ $queryFilters = array_filter($filters, function ($value) {
     return $value !== '' && $value !== 0 && $value !== null;
 });
 $exportUrl = site_url('admin/export') . ($queryFilters ? '?' . http_build_query($queryFilters) : '');
+$excelUrl = site_url('admin/export-excel') . ($queryFilters ? '?' . http_build_query($queryFilters) : '');
 $showSurveyTypeFilter = count($survey_types) > 1;
 $showSurveyFilter = count($surveys) > 1;
 $showGenderFilter = count($genders) > 1;
@@ -142,6 +143,7 @@ $showUnitFilter = count($units) > 0;
       </span>
       <a class="btn btn-secondary btn-sm" href="<?= site_url('admin/responses') ?>">Reset</a>
       <a class="btn btn-secondary btn-sm" href="<?= html_escape($exportUrl) ?>">Unduh CSV</a>
+      <a class="btn btn-secondary btn-sm" href="<?= html_escape($excelUrl) ?>">Unduh Excel</a>
       <button class="btn btn-primary btn-sm" type="submit">Terapkan filter</button>
     </div>
   </div>
