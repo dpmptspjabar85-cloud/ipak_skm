@@ -1764,7 +1764,7 @@ class Admin extends CI_Controller
         header('X-Content-Type-Options: nosniff');
         echo $pdf;
         exit;
-    }
+    }  
 
     public function kbli()
     {
