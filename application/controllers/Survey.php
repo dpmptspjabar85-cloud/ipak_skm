@@ -361,6 +361,15 @@ class Survey extends CI_Controller
         $jobVisible = !empty($fieldSettings['job']) && $fieldSettings['job']['field_mode'] !== 'hidden';
         $serviceVisible = !empty($fieldSettings['service']) && $fieldSettings['service']['field_mode'] !== 'hidden';
         $job = $jobVisible ? (int) $this->input->post('job', true) : 0;
+        /*
+ * Catatan: substr('', 0, 100) menghasilkan boolean false pada PHP 5.x, bukan
+ * string kosong. Karena itu hasil substr harus selalu dipaksa menjadi string,
+ * jika tidak nilai kosong tidak akan cocok dengan perbandingan '' dan field
+ * "Pekerjaan lainnya" tidak akan pernah tervalidasi.
+ */
+$jobOther = $jobVisible
+            ? (string) substr(trim((string) $this->input->post('job_other', true)), 0, 100)
+            : '';
 
         if ($jobVisible && $job === 5 && $jobOther === '') {
             $this->session->set_flashdata('old', $this->input->post(NULL, true));
@@ -457,10 +466,10 @@ class Survey extends CI_Controller
             'unit_name' => $requiresResi
                 ? (isset($permit['unit_name']) ? trim((string) $permit['unit_name']) : '')
                 : (isset($defaultUnit['n_unitkerja']) ? trim((string) $defaultUnit['n_unitkerja']) : ''),
-            'name' => substr($name, 0, 100),
-            'phone' => substr($phone, 0, 25),
-            'email' => substr(strtolower($email), 0, 100),
-            'nib' => substr($permitNib !== '' ? $permitNib : $identityNumber, 0, 20),
+            'name' => $this->truncate_text($name, 100),
+            'phone' => $this->truncate_text($phone, 25),
+            'email' => $this->truncate_text(strtolower($email), 100),
+            'nib' => $this->truncate_text($permitNib !== '' ? $permitNib : $identityNumber, 20),
             'age' => (int) $this->input->post('age', true),
             'gender' => (int) $this->input->post('gender', true),
             'education' => (int) $this->input->post('education', true),
@@ -635,24 +644,41 @@ class Survey extends CI_Controller
         return site_url('survey') . ($query ? '?' . implode('&', $query) : '');
     }
 
+    /**
+     * Memotong teks dengan hasil yang selalu berupa string.
+     *
+     * substr('', 0, $length) mengembalikan boolean false pada PHP 5.x, bukan
+     * string kosong. Nilai false tersebut akan lolos pada perbandingan dengan
+     * '' dan tersimpan ke database sebagai false, sehingga validasi wajib-isi
+     * maupun tampilan data menjadi keliru.
+     */
+    private function truncate_text($value, $length)
+    {
+        $value = (string) $value;
+        if (strlen($value) <= $length) {
+            return $value;
+        }
+        return (string) substr($value, 0, $length);
+    }
+
     private function permit_applicant_name(array $permit)
     {
         $company = trim((string) $permit['namaPerusahaan']);
         $name = $company !== '' ? $company : trim((string) $permit['namaPemohon']);
-        return substr($name, 0, 100);
+        return $this->truncate_text($name, 100);
     }
 
     private function permit_phone(array $permit)
     {
         $companyPhone = trim((string) $permit['telpPerusahaan']);
         $phone = $companyPhone !== '' ? $companyPhone : trim((string) $permit['telpPemohon']);
-        return substr($phone, 0, 25);
+        return $this->truncate_text($phone, 25);
     }
 
     private function permit_email(array $permit)
     {
         $email = strtolower(trim((string) $permit['emailPerusahaan']));
-        return filter_var($email, FILTER_VALIDATE_EMAIL) ? substr($email, 0, 100) : '';
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $this->truncate_text($email, 100) : '';
     }
 
     private function render_access_page($message, $resi, $status)
