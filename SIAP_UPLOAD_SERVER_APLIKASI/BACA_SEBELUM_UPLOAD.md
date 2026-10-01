@@ -16,10 +16,29 @@ Folder asset yang harus tersedia:
 ## Pencarian pada pilihan (select option)
 
 Fitur pencarian pada field bertipe `select` (Pendidikan, Pekerjaan, Sektor,
-dan field KBLI di langkah identitas) gagal di server karena
+dan field KBLI di langkah identitas) hilang di server karena
 `assets/ipak/js/survey.js` pada paket upload ini masih versi lama tanpa blok
 `makeSearchable`, dan `assets/ipak/css/app.css` belum memuat aturan
 `.searchable-select`.
+
+## Komponen pencarian dibuat mandiri (CSS dan JS universal)
+
+`assets/ipak/js/survey.js` sekarang tidak bergantung pada `#ipak-survey-form`
+atau pada `app.css` untuk bagian penting:
+
+- pencarian dinisialisasi untuk seluruh `<select>` di halaman, bukan hanya yang
+  berada di dalam form wizard. Sebelumnya bila `id="ipak-survey-form"` berubah
+  atau tidak ada, seluruh skrip berhenti diam-diam dan kotak pencarian tidak
+  pernah muncul sama sekali
+- posisi, hide dropdown, hide `<select>` asli, serta tampilan/penyembunyian
+  item ditulis langsung lewat `style` dari JavaScript, sehingga komponen tetap
+  berfungsi walau `app.css` belum terupload atau versi lama
+- atribut CSS `:focus-within` dan CSS variable `var(--muted)` tidak lagi
+  dipakai karena tidak didukung browser lama; state fokus memakai kelas
+  `.is-open` yang diset dari JavaScript
+- `Element.closest`, `new Event()`, `scrollIntoView({block})`, dan
+  `window.scrollTo({behavior})` memakai fallback bila tidak tersedia
+- `NodeList.forEach` tidak lagi dipakai
 
 Berkas yang wajib ikut terupload:
 
@@ -68,6 +87,21 @@ Bila `application/config/autoload.php` di server pernah diubah manual, gabungkan
 hanya baris pada `$autoload['helper']`:
 
 `'url', 'form', 'security', 'ipak_asset'`
+
+Bila helper tersebut belum terupload, halaman tetap berjalan normal karena
+seluruh pemanggilan `ipak_asset()` pada view sudah dibungkus
+`function_exists()`.
+
+## Cara memastikan pencarian benar-benar terupload
+
+Buka langsung di browser:
+
+`<alamat-aplikasi>/assets/ipak/js/survey.js`
+
+Isi berkas harus memuat teks `makeSearchable`. Bila berkas yang tampil masih
+jauh lebih pendek, browser masih menyimpan versi lama. Buka alamat tersebut
+dengan `?v=0` untuk memaksa-taking ulang, lalu muat ulang halaman survei dengan
+`Ctrl+F5`.
 
 Konfigurasi sekarang mendeteksi subfolder aplikasi secara otomatis. Sebagai
 contoh, bila aplikasi berada di:

@@ -19,7 +19,7 @@ $dimensionLabels = [
   <title>Dashboard Survei | <?= html_escape($agency) ?></title>
   <meta name="description" content="Dashboard publik hasil survei pelayanan DPMPTSP Provinsi Jawa Barat">
   <link rel="icon" href="<?= base_url('assets/theme_skm/img/favicon.ico') ?>">
-  <link rel="stylesheet" href="<?= ipak_asset('css/app.css') ?>">
+  <link rel="stylesheet" href="<?= function_exists('ipak_asset') ? ipak_asset('css/app.css') : base_url('assets/ipak/css/app.css') ?>">
 </head>
 <body class="public-dashboard">
 <header class="public-header">

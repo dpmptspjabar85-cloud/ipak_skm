@@ -21,7 +21,7 @@ foreach ($respondentFields as $respondentField) {
   <title><?= html_escape($title) ?> | <?= html_escape($agency) ?></title>
   <meta name="description" content="Survei pelayanan terpadu DPMPTSP Provinsi Jawa Barat">
   <link rel="icon" href="<?= base_url('assets/theme_skm/img/favicon.ico') ?>">
-  <link rel="stylesheet" href="<?= ipak_asset('css/app.css') ?>">
+  <link rel="stylesheet" href="<?= function_exists('ipak_asset') ? ipak_asset('css/app.css') : base_url('assets/ipak/css/app.css') ?>">
 </head>
 <body>
 <main class="survey-shell">
@@ -173,6 +173,6 @@ foreach ($respondentFields as $respondentField) {
     </div>
   </section>
 </main>
-<script src="<?= ipak_asset('js/survey.js') ?>"></script>
+<script src="<?= function_exists('ipak_asset') ? ipak_asset('js/survey.js') : base_url('assets/ipak/js/survey.js') ?>"></script>
 </body>
 </html>

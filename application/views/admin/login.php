@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= html_escape($title) ?></title>
   <link rel="icon" href="<?= base_url('assets/theme_skm/img/favicon.ico') ?>">
-  <link rel="stylesheet" href="<?= ipak_asset('css/app.css') ?>">
+  <link rel="stylesheet" href="<?= function_exists('ipak_asset') ? ipak_asset('css/app.css') : base_url('assets/ipak/css/app.css') ?>">
 </head>
 <body>
 <main class="login-page">

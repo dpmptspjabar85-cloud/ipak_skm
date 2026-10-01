@@ -2881,13 +2881,18 @@ button, input, select, textarea { font: inherit; }
   .builder-actions .btn { flex: 1; }
 }
 
+/*
+ * Searchable dropdown for <select> elements.
+ *
+ * These rules are decorative only: the component also writes its own critical
+ * layout inline, so a missing or stale stylesheet degrades gracefully instead
+ * of hiding the search box.
+ */
 .searchable-select {
-  width: 100%;
-  max-width: 420px;
   position: relative;
   z-index: 20;
 }
-.searchable-select:focus-within { z-index: 40; }
+.searchable-select.is-open { z-index: 40; }
 .searchable-select-input {
   width: 100%;
   padding: 8px 26px 8px 8px;
@@ -2896,6 +2901,7 @@ button, input, select, textarea { font: inherit; }
   border-radius: 6px;
   font-size: 13px;
   background: #fff;
+  color: #344054;
 }
 .searchable-select-input:focus {
   outline: none;
@@ -2923,6 +2929,7 @@ button, input, select, textarea { font: inherit; }
   cursor: pointer;
   font-size: 13px;
   line-height: 1.4;
+  color: #344054;
 }
 .searchable-select-option:hover { background: #f1f4ff; }
 .searchable-select-option.is-active { background: #e7ecff; }
@@ -2931,13 +2938,14 @@ button, input, select, textarea { font: inherit; }
   display: none;
   padding: 8px;
   font-size: 12px;
-  color: var(--muted);
+  color: #667085;
 }
 .searchable-select-hidden { display: none; }
 .searchable-select-caret {
   position: absolute;
   right: 10px;
   top: 50%;
+  -webkit-transform: translateY(-50%);
   transform: translateY(-50%);
   font-size: 12px;
   color: #667085;

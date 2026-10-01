@@ -25,7 +25,7 @@ $catalogUrl = function ($targetPage) use ($search, $type) {
   <title>Pilih Survei | <?= html_escape($agency) ?></title>
   <meta name="description" content="Pilih survei pelayanan publik yang ingin Anda isi">
   <link rel="icon" href="<?= base_url('assets/theme_skm/img/favicon.ico') ?>">
-  <link rel="stylesheet" href="<?= ipak_asset('css/app.css') ?>">
+  <link rel="stylesheet" href="<?= function_exists('ipak_asset') ? ipak_asset('css/app.css') : base_url('assets/ipak/css/app.css') ?>">
 </head>
 <body class="public-dashboard survey-catalog-page">
 <header class="public-header">
