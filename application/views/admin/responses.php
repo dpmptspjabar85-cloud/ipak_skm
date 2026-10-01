@@ -52,12 +52,12 @@ $showUnitFilter = count($units) > 0;
     <div>
       <label for="date_from">Dari tanggal</label>
       <input id="date_from" name="date_from" type="date" value="<?= html_escape($filters['date_from']) ?>">
-      <small class="filter-help">Tanggal awal periode pengisian.</small>
+      <small class="filter-help">Tanggal awal periode pengisian. Kosongkan untuk memakai tahun default.</small>
     </div>
     <div>
       <label for="date_to">Sampai tanggal</label>
       <input id="date_to" name="date_to" type="date" value="<?= html_escape($filters['date_to']) ?>">
-      <small class="filter-help">Tanggal akhir periode pengisian.</small>
+      <small class="filter-help">Tanggal akhir periode pengisian. Kosongkan untuk memakai tahun default.</small>
     </div>
 
     <?php if ($showGenderFilter): ?>
@@ -136,6 +136,10 @@ $showUnitFilter = count($units) > 0;
     <?php endif; ?>
 
     <div class="filter-actions">
+      <span class="filter-help">
+        Periode aktif: <strong><?= html_escape($filters['date_from']) ?> s.d. <?= html_escape($filters['date_to']) ?></strong>.
+        Kosongkan kedua tanggal untuk kembali memakai tahun default.
+      </span>
       <a class="btn btn-secondary btn-sm" href="<?= site_url('admin/responses') ?>">Reset</a>
       <a class="btn btn-secondary btn-sm" href="<?= html_escape($exportUrl) ?>">Unduh CSV</a>
       <button class="btn btn-primary btn-sm" type="submit">Terapkan filter</button>

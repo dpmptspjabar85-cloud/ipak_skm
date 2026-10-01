@@ -75,13 +75,8 @@ class Admin extends CI_Controller
             $yearInput = $this->input->get('thnskm', true);
         }
         $year = (int) $yearInput;
-        if (!$availableYears) {
-            $year = (int) date('Y');
-        } elseif (!isset($availableYears[$year])) {
-            $yearValues = array_keys($availableYears);
-            $year = isset($availableYears[(int) date('Y')])
-                ? (int) date('Y')
-                : (int) $yearValues[0];
+        if (!$availableYears || !isset($availableYears[$year])) {
+            $year = $this->response_default_year($availableYears);
         }
         $dimension = trim((string) $this->input->get('dimension', true));
         if ($dimension === '') {
@@ -2369,9 +2364,12 @@ class Admin extends CI_Controller
         if (!in_array($surveyType, ['SKM', 'SURVEY'], true)) {
             $surveyType = '';
         }
+
+        $dateRange = $this->resolve_response_date_range();
+
         return [
-            'date_from' => $this->safe_date($this->input->get('date_from', true)),
-            'date_to' => $this->safe_date($this->input->get('date_to', true)),
+            'date_from' => $dateRange[0],
+            'date_to' => $dateRange[1],
             'gender' => (int) $this->input->get('gender', true),
             'education' => (int) $this->input->get('education', true),
             'job' => (int) $this->input->get('job', true),
@@ -2381,6 +2379,82 @@ class Admin extends CI_Controller
             'survey_type' => $surveyType,
             'keyword' => trim((string) $this->input->get('keyword', true)),
         ];
+    }
+
+    /**
+     * Menentukan tahun default untuk rentang tanggal data responden.
+     *
+     * Tahun berjalan dipilih bila tersedia pada data. Bila tidak, dipakai
+     * tahun terbaru yang ada isinya (response_year_options diurutkan menurun).
+     * Bila belum ada respons sama sekali, jatuh ke tahun berjalan.
+     *
+     * @param  array $availableYears
+     * @return int
+     */
+    private function response_default_year(array $availableYears)
+    {
+        if (!$availableYears) {
+            return (int) date('Y');
+        }
+        $currentYear = (int) date('Y');
+        if (isset($availableYears[$currentYear])) {
+            return $currentYear;
+        }
+        $years = array_keys($availableYears);
+        return (int) $years[0];
+    }
+
+    /**
+     * Rentang tanggal default untuk halaman data responden.
+     *
+     * Tanpa rentang tanggal, halaman memuat seluruh riwayat tanpa batas
+     * sehingga beban query terus bertambah seiring jumlah data. Tahun default
+     * membatasi hasil sekaligus membuat tampilan langsung terisi pada tahun
+     * berjalan.
+     *
+     * @return array{0:string,1:string}
+     */
+    private function response_default_date_range()
+    {
+        $year = $this->response_default_year($this->ipak->response_year_options());
+        return [$year . '-01-01', $year . '-12-31'];
+    }
+
+    /**
+     * Tanggal awal yang sudah dilengkapi default bila belum diisi.
+     *
+     * @return array{0:string,1:string} Tanggal awal dan tanggal akhir.
+     */
+    private function resolve_response_date_range()
+    {
+        $from = $this->safe_date($this->input->get('date_from', true));
+        $to = $this->safe_date($this->input->get('date_to', true));
+
+        if ($from === '' && $to === '') {
+            return $this->response_default_date_range();
+        }
+
+        // Hanya satu tanggal yang diisi: lengkapi sisi lainnya pada tahun yang
+        // sama supaya rentang tidak berubah menjadi tanpa batas.
+        if ($from === '' || $to === '') {
+            $referenceYear = substr($from !== '' ? $from : $to, 0, 4);
+            if ($from === '') {
+                $from = $referenceYear . '-01-01';
+            }
+            if ($to === '') {
+                $to = $referenceYear . '-12-31';
+            }
+        }
+
+        // Tanggal terbalik ditukar, bukan ditolak, agar tidak menghasilkan
+        // halaman kosong tanpa penjelasan.
+        if ($from > $to) {
+            $swap = $from;
+            $from = $to;
+            $to = $swap;
+        }
+
+        return [$from, $to];
     }
 
     private function safe_date($value)
