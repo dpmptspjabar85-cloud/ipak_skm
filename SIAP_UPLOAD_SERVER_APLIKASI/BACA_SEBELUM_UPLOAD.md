@@ -13,6 +13,62 @@ Folder asset yang harus tersedia:
 
 `assets/ipak/`
 
+## Pencarian pada pilihan (select option)
+
+Fitur pencarian pada field bertipe `select` (Pendidikan, Pekerjaan, Sektor,
+dan field KBLI di langkah identitas) gagal di server karena
+`assets/ipak/js/survey.js` pada paket upload ini masih versi lama tanpa blok
+`makeSearchable`, dan `assets/ipak/css/app.css` belum memuat aturan
+`.searchable-select`.
+
+Berkas yang wajib ikut terupload:
+
+`assets/ipak/js/survey.js`
+
+`assets/ipak/css/app.css`
+
+## Pencarian KBLI dilakukan di sisi server
+
+Langkah identitas memuat pilihan KBLI. Sebelumnya seluruh tabel `ipak_kbli`
+(dimiliki ribuan baris) dirender ke setiap halaman survei, sehingga dropdown
+menjadi sangat berat danpora tidak bisa dicari di server.
+
+Sekarang hanya 200 pilihan pertama yang dirender. Sisanya diambil lewat
+pencarian ke endpoint baru berikut:
+
+`GET survey/kbli_options?field=<field>&q=<kata>&selected=<nilai>&form=<kode_form>`
+
+Endpoint memakai konfigurasi kolom yang tersimpan pada field tersebut, sehingga
+label yang tampil sama dengan sebelumnya. Endpoint menolak field yang
+`source`-nya bukan `ipak_kbli` atau yang disembunyikan pengelola.
+
+Agar fitur ini aktif, berkas berikut harus terupload:
+
+`application/controllers/Survey.php`
+
+`application/views/public/_respondent_fields.php`
+
+`application/models/Ipaksurvey_model.php`
+
+`application/config/ipak.php`
+
+## Asset tidak lagi tersimpan di cache browser
+
+`application/views/public/survey.php` kini memuat asset lewat helper
+`ipak_asset()`, yang menambahkan query `?v=<filemtime>` pada URL CSS dan JS.
+Tujuannya agar browser dan reverse proxy tidak lagi menyajikan `survey.js`
+versi lama setelah upload. Agar helper aktif, dua berkas berikut juga harus
+terupload:
+
+`application/helpers/ipak_asset_helper.php`
+
+`application/config/autoload.php`
+
+Bila `application/config/autoload.php` di server pernah diubah manual, gabungkan
+hanya baris pada `$autoload['helper']`:
+
+`'url', 'form', 'security', 'ipak_asset'`
+
 Konfigurasi sekarang mendeteksi subfolder aplikasi secara otomatis. Sebagai
 contoh, bila aplikasi berada di:
 

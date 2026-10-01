@@ -6,7 +6,7 @@
   <title>Akses Survei Pelayanan | <?= html_escape($agency) ?></title>
   <meta name="description" content="Masukkan nomor resi izin terbit untuk mengisi survei pelayanan terpadu">
   <link rel="icon" href="<?= base_url('assets/theme_skm/img/favicon.ico') ?>">
-  <link rel="stylesheet" href="<?= base_url('assets/ipak/css/app.css') ?>">
+  <link rel="stylesheet" href="<?= ipak_asset('css/app.css') ?>">
 </head>
 <body>
 <main class="access-page">

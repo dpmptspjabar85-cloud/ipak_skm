@@ -206,20 +206,76 @@ class Ipaksurvey_model extends CI_Model
         return implode(' · ', $parts);
     }
 
-    public function get_kbli_field_options(array $configuration)
+    public function get_kbli_field_options(array $configuration, $limit = 0, $selectedValue = '')
     {
         if (!$this->db->table_exists('ipak_kbli')) {
             return [];
         }
+        $limit = (int) $limit;
+        if ($limit <= 0) {
+            $limit = (int) $this->config->item('ipak_kbli_initial_limit');
+        }
+        $limit = $limit > 0 ? $limit : 200;
+        $selectedId = trim((string) $selectedValue);
+        $selectedId = preg_match('/^\d+$/', $selectedId) ? $selectedId : '';
+
+        $options = [];
+        if ($selectedId !== '') {
+            $selected = $this->db
+                ->where('id', $selectedId)
+                ->limit(1)
+                ->get('ipak_kbli')
+                ->row_array();
+            if (!empty($selected)) {
+                $options[$selectedId] = $this->kbli_option_label($selected, $configuration);
+            }
+        }
+
         $rows = $this->db
             ->order_by('kode_gabungan', 'ASC')
+            ->limit($limit)
             ->get('ipak_kbli')
             ->result_array();
-        $options = [];
         foreach ($rows as $row) {
             $options[(string) $row['id']] = $this->kbli_option_label($row, $configuration);
         }
         return $options;
+    }
+
+    /**
+     * Server-side search for KBLI-backed select fields.
+     *
+     * The full ipak_kbli table is far too large to render into every survey
+     * page, so the select is populated lazily through this lookup instead.
+     */
+    public function search_kbli_field_options(array $configuration, $search = '', $limit = 50, $selectedValue = '')
+    {
+        $limit = max(1, min(100, (int) $limit));
+        $search = trim((string) $search);
+        $selectedId = trim((string) $selectedValue);
+        $selectedId = preg_match('/^\d+$/', $selectedId) ? $selectedId : '';
+
+        $options = [];
+        if ($selectedId !== '' && $search !== '') {
+            $selected = $this->db
+                ->where('id', $selectedId)
+                ->limit(1)
+                ->get('ipak_kbli')
+                ->row_array();
+            if (!empty($selected)) {
+                $options[$selectedId] = $this->kbli_option_label($selected, $configuration);
+            }
+        }
+
+        $rows = $this->get_kbli_rows($search, $limit, 0);
+        foreach ($rows as $row) {
+            $options[(string) $row['id']] = $this->kbli_option_label($row, $configuration);
+        }
+
+        return [
+            'options' => $options,
+            'total' => (int) $this->count_kbli_rows($search),
+        ];
     }
 
     public function kbli_code_exists($code, $excludeId = 0)
@@ -1369,7 +1425,12 @@ class Ipaksurvey_model extends CI_Model
         }
         foreach ($result as $fieldKey => $field) {
             if (!empty($field['options']['source']) && $field['options']['source'] === 'ipak_kbli') {
-                $result[$fieldKey]['kbli_options'] = $this->get_kbli_field_options($field['options']);
+                $selected = isset($field['field_value']) ? trim((string) $field['field_value']) : '';
+                $result[$fieldKey]['kbli_options'] = $this->get_kbli_field_options(
+                    $field['options'],
+                    $this->config->item('ipak_kbli_initial_limit'),
+                    $selected
+                );
             }
         }
         return $result;
