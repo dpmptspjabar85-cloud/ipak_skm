@@ -414,7 +414,14 @@ class Admin extends CI_Controller
             'services' => $this->ipak->sector_options(),
             'unit_names' => $this->ipak->unit_options(),
         );
-        $options = array('include_scores' => (bool) $this->input->get('skor'));
+        $droppedUpstream = array_merge(
+            $this->ipak->get_export_overwritten_answers(),
+            $this->ipak->get_export_unregistered_answers()
+        );
+        $options = array(
+            'include_scores' => (bool) $this->input->get('skor'),
+            'dropped_upstream' => $droppedUpstream,
+        );
 
         // Builder butuh model dan master label, jadi dipakai langsung lewat
         // include. Loader CI hanya bisa instantiate kelas tanpa argumen.
@@ -586,20 +593,43 @@ class Admin extends CI_Controller
             array('Pasangan referensi + pertanyaan yang harus terisi', $check['answer_cells_expected']),
             array('Sel jawaban yang terisi di Excel', $check['answer_cells_filled']),
             array('Tidak ada jawaban yang hilang', $yes($check['no_answer_lost'])),
+            array('Jawaban hilang setelah transformasi', $check['lost_answer_count']),
+            array('Jawaban dibuang di lapisan data (duplikat/soal tidak terdaftar)', $check['dropped_upstream_count']),
             array('Jumlah kolom di sheet utama', $check['column_count']),
             array('Kolom pertanyaan', $check['question_columns']),
+            array('Urutan kolom pertanyaan', implode(' | ', $check['question_column_order'])),
             array(
                 'Kode pertanyaan yang butuh nama kolom tambahan',
                 $check['duplicate_question_columns']
                     ? implode(', ', $check['duplicate_question_columns'])
                     : 'tidak ada'
             ),
+            array('Kolom pertanyaan yang dinamai ulang karena bentrok', $check['question_column_renamed']),
             array('Duplikat dengan jawaban identik (dipipihkan)', $check['duplicate_identical']),
             array('Duplikat berbeda jawaban, dipakai yang terbaru', $check['duplicate_newest_wins']),
             array('Konflik tanpa waktu pembeda, dicatat sebagai konflik', $check['duplicate_unresolved']),
             array('Field profil dengan nilai berbeda (digabung)', $check['profile_multi_value']),
             array('Referensi kosong diberi penanda', $check['empty_reference']),
         );
+
+        if ($check['lost_answers']) {
+            $rows[] = array('', '');
+            $rows[] = array('JAWABAN HILANG SETELAH TRANSFORMASI', 'per kode pertanyaan dan nomor referensi');
+            foreach ($check['lost_answers'] as $line) {
+                $rows[] = array('', $line);
+            }
+        }
+
+        if ($check['dropped_upstream']) {
+            $rows[] = array('', '');
+            $rows[] = array(
+                'CATATAN: jawaban dibuang di lapisan data',
+                'bukan kehilangan hasil transformasi, sering salinan ganda'
+            );
+            foreach ($check['dropped_upstream'] as $line) {
+                $rows[] = array('', $line);
+            }
+        }
 
         if ($check['audit']) {
             $rows[] = array('', '');

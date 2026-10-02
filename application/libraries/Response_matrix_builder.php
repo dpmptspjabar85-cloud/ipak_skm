@@ -86,6 +86,7 @@ class Response_matrix_builder
         'duplicate_unresolved' => 0,
         'profile_multi_value' => 0,
         'empty_reference' => 0,
+        'question_column_renamed' => 0,
     );
 
     /** @var array Grup per nomor referensi, hasil group by. */
@@ -97,6 +98,12 @@ class Response_matrix_builder
     /** @var array|null Susunan kolom hasil akhir. */
     private $layout = null;
 
+    /** @var array Pemetaan nama kolom di header ke nama aslinya. */
+    private $headerSource = array();
+
+    /** @var array Baris yang sudah diselesaikan, satu per nomor referensi. */
+    private $finalized = array();
+
     /**
      * @param object $model   Model survei.
      * @param array  $bundle  Bundle jawaban.
@@ -107,7 +114,10 @@ class Response_matrix_builder
     {
         $this->model = $model;
         $this->bundle = $bundle;
-        $this->options = $options + array('include_scores' => false);
+        $this->options = $options + array(
+            'include_scores' => false,
+            'dropped_upstream' => array(),
+        );
 
         $this->education = isset($lookups['education']) ? $lookups['education'] : array();
         $this->jobs = isset($lookups['jobs']) ? $lookups['jobs'] : array();
@@ -155,6 +165,14 @@ class Response_matrix_builder
 
             $this->collect_profile($this->groups[$reference], $row, $meta, $entry);
             $this->collect_answers($this->groups[$reference], $entry, $row);
+        }
+
+        // Penyelesaian jawaban dilakukan sekali di sini. rows() dan
+        // validation() memakai hasil yang sama, karena finalize_group()
+        // menambah penghitung duplikat dan menulis audit.
+        $this->finalized = array();
+        foreach ($this->groups as $group) {
+            $this->finalized[] = $this->finalize_group($group);
         }
     }
 
@@ -441,6 +459,11 @@ class Response_matrix_builder
     /**
      * Menyusun susunan kolom akhir.
      *
+     * Nama kolom dijamin unik. Bila nama kolom pertanyaan bentrok dengan kolom
+     * yang sudah ada, namanya diberi akhiran surveys, bukan menimpa kolom
+     * lama, karena dua sel dengan nama sama akan saling menimpa di pemetaan
+     * baris danSatu nilai hilang tanpa jejak.
+     *
      * @return array
      */
     private function layout()
@@ -450,36 +473,180 @@ class Response_matrix_builder
         }
         $headers = array('No', 'Nomor Referensi');
         $kinds = array('No' => 'row_number', 'Nomor Referensi' => 'reference');
+        $this->headerSource = array('No' => 'No', 'Nomor Referensi' => 'Nomor Referensi');
 
         if ($this->dateLabel !== '') {
             $headers[] = $this->dateLabel;
             $kinds[$this->dateLabel] = 'date';
+            $this->headerSource[$this->dateLabel] = $this->dateLabel;
         }
 
         foreach ($this->ordered_identity_labels() as $label) {
-            $headers[] = $label;
-            $kinds[$label] = 'identity';
+            $unique = $this->unique_header($headers, $label, 'kolom');
+            $headers[] = $unique;
+            $kinds[$unique] = 'identity';
+            $this->headerSource[$unique] = $label;
         }
 
         foreach (array('Kategori', 'Survei') as $label) {
             if (in_array($label, $this->identityLabels, true)) {
-                $headers[] = $label;
-                $kinds[$label] = 'metadata';
+                $unique = $this->unique_header($headers, $label, 'kolom');
+                $headers[] = $unique;
+                $kinds[$unique] = 'metadata';
+                $this->headerSource[$unique] = $label;
             }
         }
 
-        foreach ($this->questionColumns as $column) {
+        foreach ($this->ordered_question_columns() as $column) {
+            $unique = $this->unique_header($headers, $column['column'], $column['code']);
+            if ($unique !== $column['column']) {
+                // Nama kolom berubah karena bentrok. Nama baru ikut dipakai
+                // saat mengisi sel supaya isi tidak tertinggal di kolom lama.
+                $column['label'] = $unique;
+                $this->questionColumns[$column['column']]['label'] = $unique;
+                $this->audit[] = sprintf(
+                    'kolom "%s" [%s] dinamai ulang menjadi "%s" karena nama itu sudah dipakai kolom lain',
+                    $column['column'],
+                    $column['survey'],
+                    $unique
+                );
+            }
+            // Penghitung dihitung di sini, setelah semua nama final, karena
+            // nama bisa diubah oleh question_column() maupun oleh bentrok
+            // nama kolom di layout().
+            if ($column['column'] !== $column['code']) {
+                $this->counters['question_column_renamed']++;
+            }
             $headers[] = $column['label'];
             $kinds[$column['label']] = 'answer';
             if (!empty($this->options['include_scores'])) {
-                $scoreLabel = 'Nilai ' . $column['code'];
+                $scoreLabel = $this->unique_header($headers, 'Nilai ' . $column['code'], 'kolom nilai');
                 $headers[] = $scoreLabel;
                 $kinds[$scoreLabel] = 'score';
+                $column['score_label'] = $scoreLabel;
+                $this->questionColumns[$column['column']]['score_label'] = $scoreLabel;
             }
         }
 
         $this->layout = array('headers' => $headers, 'kinds' => $kinds);
         return $this->layout;
+    }
+
+    /**
+     * Memastikan nama kolom belum dipakai.
+     *
+     * @param  array  $headers Nama kolom yang sudah ada.
+     * @param  string $desired Nama yang diinginkan.
+     * @param  string $context Keterangan sumber untuk pesan audit.
+     * @return string
+     */
+    private function unique_header(array $headers, $desired, $context)
+    {
+        if (!in_array($desired, $headers, true)) {
+            return $desired;
+        }
+        $base = $desired . ' (' . $context . ')';
+        $candidate = $base;
+        $suffix = 2;
+        while (in_array($candidate, $headers, true)) {
+            $candidate = $base . ' ' . $suffix;
+            $suffix++;
+        }
+        return $candidate;
+    }
+
+    /**
+     * Urutan kolom pertanyaan diurutkan natural, bukan leksikal.
+     *
+     * Urutan leksikal akan menempatkan IPAK-10 sebelum IPAK-02 karena
+     * karakter '1' lebih kecil dari '2'. Urutan natural memecah kode menjadi
+     * bagian angka dan bukan angka sehingga IPAK-01 sampai IPAK-10 tersusun
+     * sesuai nomor urutnya.
+     *
+     * @return array
+     */
+    private function ordered_question_columns()
+    {
+        $columns = array_values($this->questionColumns);
+        $sorted = array();
+        foreach ($columns as $position => $column) {
+            $sorted[] = array('position' => $position, 'column' => $column);
+        }
+        usort($sorted, function ($a, $b) {
+            $result = self::natural_compare($a['column']['code'], $b['column']['code']);
+            if ($result !== 0) {
+                return $result;
+            }
+            $result = strcasecmp($a['column']['survey'], $b['column']['survey']);
+            return $result !== 0 ? $result : ($a['position'] - $b['position']);
+        });
+
+        $ordered = array();
+        foreach ($sorted as $entry) {
+            $ordered[] = $entry['column'];
+        }
+        return $ordered;
+    }
+
+    /**
+     * Membandingkan dua teks dengan mengabaikan nilai angka di dalamnya.
+     *
+     * @param  string $a
+     * @param  string $b
+     * @return int
+     */
+    private static function natural_compare($a, $b)
+    {
+        $left = self::natural_key($a);
+        $right = self::natural_key($b);
+        $length = max(count($left), count($right));
+        for ($i = 0; $i < $length; $i++) {
+            $x = isset($left[$i]) ? $left[$i] : null;
+            $y = isset($right[$i]) ? $right[$i] : null;
+            if ($x === null) {
+                return -1;
+            }
+            if ($y === null) {
+                return 1;
+            }
+            if ($x === $y) {
+                continue;
+            }
+            if (is_float($x) && is_float($y)) {
+                return $x < $y ? -1 : 1;
+            }
+            $result = strcasecmp((string) $x, (string) $y);
+            if ($result !== 0) {
+                return $result < 0 ? -1 : 1;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Mengubah teks menjadi rangkaian pasangan pembanding.
+     *
+     * Setiap bagian angka diberi penanda floats dan setiap bagian teks penanda
+     * string, sehingga perbandingan tidak pernah salah antar jenis.
+     *
+     * @param  string $value
+     * @return array
+     */
+    private static function natural_key($value)
+    {
+        $chunks = preg_split('/(\d+)/', (string) $value, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $key = array();
+        foreach ($chunks as $chunk) {
+            if ($chunk === '' || $chunk === null) {
+                continue;
+            }
+            if (ctype_digit($chunk)) {
+                $key[] = (float) $chunk;
+            } else {
+                $key[] = strtolower($chunk);
+            }
+        }
+        return $key;
     }
 
     /**
@@ -629,9 +796,8 @@ class Response_matrix_builder
         $rows = array();
         $number = 0;
 
-        foreach ($this->groups as $group) {
+        foreach ($this->finalized as $final) {
             $number++;
-            $final = $this->finalize_group($group);
             $cells = array(
                 'No' => (string) $number,
                 'Nomor Referensi' => $final['reference'],
@@ -640,22 +806,22 @@ class Response_matrix_builder
                 if (isset($cells[$header])) {
                     continue;
                 }
-                if (isset($final['cells'][$header])) {
-                    $cells[$header] = $final['cells'][$header];
-                    continue;
-                }
-                $cells[$header] = '';
+                // Nama kolom boleh sudah diubah karena bentrok, jadi nilai
+                // profil dicari memakai nama aslinya.
+                $source = isset($this->headerSource[$header]) ? $this->headerSource[$header] : $header;
+                $cells[$header] = isset($final['cells'][$source]) ? $final['cells'][$source] : '';
             }
 
-            foreach ($this->questionColumns as $column) {
+            foreach ($this->ordered_question_columns() as $column) {
                 $record = isset($final['answers'][$column['column']])
                     ? $final['answers'][$column['column']]
                     : null;
                 $cells[$column['label']] = $record === null ? '' : $record['answer'];
                 if (!empty($this->options['include_scores'])) {
-                    $cells['Nilai ' . $column['code']] = $record === null
-                        ? ''
-                        : $this->format_score($record['score']);
+                    $scoreLabel = isset($column['score_label'])
+                        ? $column['score_label']
+                        : 'Nilai ' . $column['code'];
+                    $cells[$scoreLabel] = $record === null ? '' : $this->format_score($record['score']);
                 }
             }
 
@@ -787,34 +953,131 @@ class Response_matrix_builder
             $references[$reference === '' ? '(tanpa referensi) ' . $entry['response']['response_key'] : $reference] = true;
         }
 
+        // Inventaris jawaban mentah per nomor referensi dan kode pertanyaan.
+        // Ini pembanding yang memeriksa setiap jawaban satu per satu, bukan
+        // hanya membandingkan jumlah baris.
+        $inventory = array();
+        foreach ($this->bundle as $entry) {
+            if (!isset($entry['response']) || !is_array($entry['response'])) {
+                continue;
+            }
+            $rawReference = $this->reference_of($entry['response']);
+            $reference = $rawReference === ''
+                ? '(tanpa referensi) ' . $entry['response']['response_key']
+                : $rawReference;
+            foreach ($entry['items'] as $item) {
+                $code = trim((string) $item['question_code']);
+                $code = $code === '' ? 'Tanpa Kode' : $code;
+                $inventory[$reference][$code][] = trim((string) $item['option_label']);
+            }
+            $references[$reference] = true;
+        }
+
+        // Kode pertanyaan dipetakan ke semua kolom yang memakainya, karena
+        // kode yang sama dapat menjadi kolom berbeda pada survei berbeda.
+        $columnsByCode = array();
+        foreach ($this->ordered_question_columns() as $column) {
+            $columnsByCode[$column['code']][] = $column['label'];
+        }
+
+        // Jawaban hasil group per referensi, dibaca dari hasil yang sama
+        // dengan yang ditulis ke sheet.
+        $producedAnswers = array();
+        foreach ($this->finalized as $final) {
+            foreach ($this->ordered_question_columns() as $column) {
+                $record = isset($final['answers'][$column['column']])
+                    ? $final['answers'][$column['column']]
+                    : null;
+                $producedAnswers[$final['reference']][$column['label']] = $record === null
+                    ? ''
+                    : trim((string) $record['answer']);
+            }
+        }
+
+        // Jawaban yang sudah dibuang sebelum masuk builder dicatat terpisah.
+        // Buyers sering merupakan salinan ganda dari jawaban yang tetap masuk
+        // lewat jalur lain, jadi tidak otomatis dihitung sebagai kehilangan.
+        $droppedUpstream = array();
+        foreach ($this->options['dropped_upstream'] as $dropped) {
+            if (isset($dropped['survey_name']) && !isset($dropped['kept'])) {
+                $droppedUpstream[] = sprintf(
+                    'referensi %s / %s: jawaban "%s" dibuang karena soalnya tidak terdaftar pada survei %s',
+                    isset($dropped['reference']) ? $dropped['reference'] : '-',
+                    isset($dropped['question_code']) ? $dropped['question_code'] : '-',
+                    isset($dropped['option_label']) ? $dropped['option_label'] : '-',
+                    $dropped['survey_name']
+                );
+                continue;
+            }
+            $droppedUpstream[] = sprintf(
+                'referensi %s / %s: jawaban "%s" tertimpa oleh "%s" saat data dirakit per soal',
+                isset($dropped['reference']) ? $dropped['reference'] : '-',
+                isset($dropped['question_code']) ? $dropped['question_code'] : '-',
+                isset($dropped['dropped']) ? $dropped['dropped'] : '-',
+                isset($dropped['kept']) ? $dropped['kept'] : '-'
+            );
+        }
+
+        $lost = array();
+        foreach ($inventory as $reference => $byCode) {
+            foreach ($byCode as $code => $answers) {
+                $found = false;
+                if (isset($columnsByCode[$code]) && isset($producedAnswers[$reference])) {
+                    foreach ($columnsByCode[$code] as $label) {
+                        $value = isset($producedAnswers[$reference][$label])
+                            ? $producedAnswers[$reference][$label]
+                            : '';
+                        if ($value !== '' && in_array($value, $answers, true)) {
+                            $found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$found) {
+                    $lost[] = sprintf(
+                        'referensi %s / %s: jawaban "%s" tidak muncul di sheet',
+                        $reference,
+                        $code,
+                        implode('", "', $answers)
+                    );
+                }
+            }
+        }
+
         $produced = array();
         $answerCells = 0;
         foreach ($this->rows() as $line) {
             $cells = array_combine($layout['headers'], $line);
             $produced[(string) $cells['Nomor Referensi']] = true;
-            foreach ($this->questionColumns as $column) {
+            foreach ($this->ordered_question_columns() as $column) {
                 if (isset($cells[$column['label']]) && trim((string) $cells[$column['label']]) !== '') {
                     $answerCells++;
                 }
             }
         }
 
-        $missing = array_values(array_diff(array_keys($references), array_keys($produced)));
+        $missingReferences = array_values(array_diff(array_keys($references), array_keys($produced)));
         $extra = array_values(array_diff(array_keys($produced), array_keys($references)));
 
         return array(
             'unique_references_raw' => count($references),
             'rows_produced' => count($produced),
             'one_row_per_reference' => count($produced) === count($references),
-            'missing_references' => $missing,
+            'missing_references' => $missingReferences,
             'unexpected_references' => $extra,
             'answer_items_raw' => $this->counters['answer_items'],
             'answer_cells_expected' => $this->counters['distinct_pairs'],
             'answer_cells_filled' => $answerCells,
-            'no_answer_lost' => $answerCells === $this->counters['distinct_pairs'],
+            'no_answer_lost' => $answerCells === $this->counters['distinct_pairs'] && !$lost,
+            'lost_answers' => $lost,
+            'lost_answer_count' => count($lost),
+            'dropped_upstream' => $droppedUpstream,
+            'dropped_upstream_count' => count($droppedUpstream),
             'column_count' => count($layout['headers']),
             'question_columns' => count($this->questionColumns),
+            'question_column_order' => $this->question_column_order(),
             'duplicate_question_columns' => $this->renamed_columns(),
+            'question_column_renamed' => $this->counters['question_column_renamed'],
             'duplicate_identical' => $this->counters['duplicate_identical'],
             'duplicate_newest_wins' => $this->counters['duplicate_newest_wins'],
             'duplicate_unresolved' => $this->counters['duplicate_unresolved'],
@@ -822,6 +1085,20 @@ class Response_matrix_builder
             'empty_reference' => $this->counters['empty_reference'],
             'audit' => $this->audit,
         );
+    }
+
+    /**
+     * Urutan kolom pertanyaan hasil pengurutan natural.
+     *
+     * @return array
+     */
+    private function question_column_order()
+    {
+        $order = array();
+        foreach ($this->ordered_question_columns() as $column) {
+            $order[] = $column['label'];
+        }
+        return $order;
     }
 
     /**

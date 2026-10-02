@@ -3,6 +3,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Ipaksurvey_model extends CI_Model
 {
+    /**
+     * Jawaban yang tertimpa saat jawaban dirakit per question_id.
+     *
+     * @var array
+     */
+    public $export_overwritten_answers = array();
+
+    /**
+     * Jawaban yang dibuang karena pertanyaannya tidak terdaftar pada survei.
+     *
+     * @var array
+     */
+    public $export_unregistered_answers = array();
     private $table = 'skm_data_skm';
     private $flexResponseTable = 'ipak_survey_responses';
     private $allResponsesView = 'ipak_all_responses';
@@ -3562,6 +3575,10 @@ class Ipaksurvey_model extends CI_Model
      */
     public function get_response_export_bundle(array $filters = [])
     {
+        // Direset setiap pemanggilan supaya angka yang dilaporkan selalu
+        // untuk export yang sedang berjalan, bukan export sebelumnya.
+        $this->export_overwritten_answers = array();
+        $this->export_unregistered_answers = array();
         $rows = $this->get_responses_for_excel($filters);
         if (!$rows) {
             return [];
@@ -3624,8 +3641,15 @@ class Ipaksurvey_model extends CI_Model
                 $items = [];
                 foreach ($answerMap as $questionId => $answer) {
                     // Pengaman terakhir: jawaban harus milik pertanyaan yang
-                    // memang terdaftar pada survei ini.
+                    // memang terdaftar pada survei ini. Jawaban yang dibuang
+                    // dicatat supaya tidak hilang tanpa jejak.
                     if ($allowedQuestions && !in_array((int) $questionId, $allowedQuestions, true)) {
+                        $this->export_unregistered_answers[] = [
+                            'reference' => $key,
+                            'survey_name' => $link['survey_name'],
+                            'question_code' => $answer['question_code'],
+                            'option_label' => $answer['option_label'],
+                        ];
                         continue;
                     }
                     $items[] = [
@@ -3661,6 +3685,29 @@ class Ipaksurvey_model extends CI_Model
             }
         }
         return $bundle;
+    }
+
+    /**
+     * Jawaban yang tertimpa ketika bundle export terakhir dirakit.
+     *
+     * Dipakai laporan export supaya jawaban yang hilang sebelum masuk proses
+     * transformasi tetap terlihat, lengkap dengan kode pertanyaannya.
+     *
+     * @return array
+     */
+    public function get_export_overwritten_answers()
+    {
+        return $this->export_overwritten_answers;
+    }
+
+    /**
+     * Jawaban yang dibuang karena soalnya tidak terdaftar pada survei.
+     *
+     * @return array
+     */
+    public function get_export_unregistered_answers()
+    {
+        return $this->export_unregistered_answers;
     }
 
     /**
@@ -3774,7 +3821,24 @@ class Ipaksurvey_model extends CI_Model
                 ? $this->response_key($flexId, 'SURVEY')
                 : $this->response_key($skmId, 'SKM');
             $groupKey = $responseKey . '|' . (int) $row['survey_id'];
-            $result[$groupKey][(int) $row['question_id']] = [
+            $questionId = (int) $row['question_id'];
+
+            // Satu respons bisa punya lebih dari satu baris jawaban untuk soal
+            // yang sama, misalnya survei diisi dua kali. Karena hasil disimpan
+            // per question_id, baris kedua akan menimpa baris pertama. Penimpaan
+            // dicatat supaya tidak ada jawaban yang hilang tanpa jejak.
+            if (isset($result[$groupKey][$questionId])) {
+                $this->export_overwritten_answers[] = [
+                    'reference' => $responseKey,
+                    'survey_id' => (int) $row['survey_id'],
+                    'question_id' => $questionId,
+                    'question_code' => $row['question_code'],
+                    'kept' => $result[$groupKey][$questionId]['option_label'],
+                    'dropped' => $row['option_label_snapshot'],
+                ];
+            }
+
+            $result[$groupKey][$questionId] = [
                 'question_code' => $row['question_code'],
                 'question_text' => $row['question_text'],
                 'option_label' => $row['option_label_snapshot'],
