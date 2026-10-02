@@ -65,6 +65,15 @@
     table.meta { border-collapse: collapse; width: 100%; font-size: 14px; }
     table.meta td { padding: 5px 0; }
     table.meta td:first-child { width: 190px; color: #6b7590; }
+
+    /* Panel diagnosa */
+    details.debug { margin: 0 0 20px; border: 1px solid #dfe4ef; border-radius: 8px; background: #fbfcfe; }
+    details.debug summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 14px; color: #4a5570; }
+    table.diag { border-collapse: collapse; width: 100%; font-size: 13px; padding: 0 14px 14px; }
+    table.diag td { padding: 4px 8px; border-top: 1px solid #eef1f7; vertical-align: top; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; word-break: break-all; }
+    table.diag td:first-child { width: 230px; color: #6b7590; white-space: nowrap; }
+    table.diag tr.warn td { background: #fff7e6; color: #7a5310; font-weight: 600; }
+    .diag-note { padding: 0 14px 12px; margin: 0; font-size: 13px; color: #7a5310; }
 </style>
 </head>
 <body>
@@ -231,6 +240,32 @@
 <div class="card">
     <h1>Sinkronisasi Database</h1>
     <p class="muted">Utility maintenance. Jalankan struktur tabel dan field yang diperlukan aplikasi.</p>
+
+<?php if (is_array($debug)): ?>
+    <details class="debug">
+        <summary>Diagnosa server (<?= count($debug) ?> pemeriksaan)</summary>
+        <table class="diag">
+<?php
+    $needWarn = false;
+    foreach ($debug as $label => $value) {
+        $bad = preg_match('/TIDAK|gagal|\(kosong\)/', (string) $value);
+        if ($bad) {
+            $needWarn = true;
+        }
+        printf(
+            '<tr class="%s"><td>%s</td><td>%s</td></tr>',
+            $bad ? 'warn' : 'ok',
+            htmlspecialchars($label, ENT_QUOTES, 'UTF-8'),
+            htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8')
+        );
+    }
+?>
+        </table>
+<?php if ($needWarn): ?>
+        <p class="diag-note">Baris bertanda oranye menunjukkan hal yang perlu diperiksa.</p>
+<?php endif; ?>
+    </details>
+<?php endif; ?>
 
 <?php if ($allowed): ?>
     <div class="banner info">

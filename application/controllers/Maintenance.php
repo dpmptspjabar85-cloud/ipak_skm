@@ -28,12 +28,20 @@ class Maintenance extends CI_Controller
     /** @var array Pesan kesalahan untuk ditampilkan di halaman. */
     private $errors = array();
 
+    /** @var array Warning/notice PHP yang tertangkap selama sinkronisasi. */
+    private $captured = array();
+
     public function __construct()
     {
         parent::__construct();
         $this->load->model('Ipaksurvey_model', 'ipak');
         $this->config->load('ipak');
         $this->load->helper('url');
+
+        // Di production display_errors dimatikan, sehingga fatal error hanya
+        // menghasilkan halaman kosong tanpa keterangan apa pun. Penangkap ini
+        // membuat error tetap terlihat oleh whoever yang sedang mengirim form.
+        register_shutdown_function(array($this, 'report_fatal'));
     }
 
     /**
@@ -60,8 +68,16 @@ class Maintenance extends CI_Controller
                 $this->errors[] = 'Token keamanan tidak valid atau kedaluwarsa. '
                     . 'Muat ulang halaman lalu coba lagi.';
             } else {
-                $results = $this->ipak->sync_database();
-                $ran = true;
+                // Warning dan notice dikumpulkan supaya bisa ditampilkan,
+                // bukan hilang bersama display_errors yang dimatikan.
+                set_error_handler(array($this, 'collect_php_error'));
+                try {
+                    $results = $this->ipak->sync_database();
+                    $ran = true;
+                } catch (Exception $e) {
+                    $this->errors[] = 'Sinkronisasi terhenti: ' . $e->getMessage();
+                }
+                restore_error_handler();
             }
         }
 
@@ -73,6 +89,7 @@ class Maintenance extends CI_Controller
             'client_ip' => $ip,
             'csrf_token' => $this->csrf_token(),
             'db_name' => (string) $this->db->database,
+            'debug' => $this->diagnostics($allowed),
             // Token milik CodeIgniter sendiri. Pengaman CSRF bawaan framework
             // berlaku untuk semua POST, jadi form harus ikut memikulnya.
             'ci_csrf_name' => $this->security->get_csrf_token_name(),
@@ -166,6 +183,180 @@ class Maintenance extends CI_Controller
         }
 
         return false;
+    }
+
+    /**
+     * Menangkap warning/notice PHP selama sinkronisasi berjalan.
+     *
+     * Mengembalikan true supaya PHP tidak menanganinya sendiri; dengan begitu
+     * pesan tidak hilang begitu saja ketika display_errors dimatikan.
+     *
+     * @return bool
+     */
+    public function collect_php_error($no, $str, $file, $line)
+    {
+        $names = array(
+            E_ERROR => 'Error', E_WARNING => 'Warning', E_PARSE => 'Parse error',
+            E_NOTICE => 'Notice', E_CORE_ERROR => 'Core error',
+            E_CORE_WARNING => 'Core warning', E_COMPILE_ERROR => 'Compile error',
+            E_COMPILE_WARNING => 'Compile warning', E_USER_ERROR => 'User error',
+            E_USER_WARNING => 'User warning', E_USER_NOTICE => 'User notice',
+        );
+        $label = isset($names[$no]) ? $names[$no] : 'Galat';
+        $short = str_replace(FCPATH, '', $file);
+        $this->captured[] = $label . ': ' . $str . ' (' . $short . ' baris ' . $line . ')';
+        return true;
+    }
+
+    /**
+     * Menampilkan fatal error yang membuat halaman kosong.
+     *
+     * Dipanggil lewat register_shutdown_function, jadi tetap berjalan meski
+     * PHP berhenti di tengah eksekusi.
+     *
+     * @return void
+     */
+    public function report_fatal()
+    {
+        $last = error_get_last();
+        if ($last === null) {
+            return;
+        }
+        $fatalTypes = array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR);
+        if (!in_array($last['type'], $fatalTypes, true)) {
+            return;
+        }
+
+        $short = str_replace(FCPATH, '', $last['file']);
+        $stamp = date('Y-m-d H:i:s');
+        $message = '[' . $stamp . '] ' . $last['message']
+            . ' di ' . $short . ' baris ' . (int) $last['line'] . "\n";
+
+        // Ditulis ke berkas lebih dulu. Kalau proses PHP berhenti sebelum
+        // sempat mengirim HTML, jejaknya tetap bisa dibaca dari server.
+        @file_put_contents(APPPATH . 'logs/maintenance_fatal.log', $message, FILE_APPEND);
+
+        echo '<div style="margin:20px auto;max-width:900px;padding:16px;'
+            . 'border:2px solid #b91c1c;background:#fef2f2;color:#7f1d1d;'
+            . 'font-family:Consolas,monospace;font-size:14px;line-height:1.6">'
+            . '<strong>FATAL ERROR - sinkronisasi berhenti</strong><br>'
+            . htmlspecialchars($last['message'], ENT_QUOTES, 'UTF-8') . '<br>'
+            . 'di ' . htmlspecialchars($short, ENT_QUOTES, 'UTF-8')
+            . ' baris ' . (int) $last['line'] . '<br>'
+            . 'Sinkronisasi tidak selesai. Berkas catatan: application/logs/maintenance_fatal.log'
+            . '</div>';
+    }
+
+    /**
+     * Kumpulan informasi untuk membantu mencari masalah di server.
+     *
+     * Tidak memuat password maupun token CSRF.
+     *
+     * @param bool $allowed
+     * @return array
+     */
+    private function diagnostics($allowed)
+    {
+        $ip = $this->client_ip();
+        $sv = array(
+            'REQUEST_METHOD' => '-',
+            'REQUEST_URI' => '-',
+            'SCRIPT_NAME' => '-',
+            'HTTP_X_FORWARDED_FOR' => '(tidak ada)',
+            'HTTP_X_FORWARDED_PROTO' => '(tidak ada)',
+            'HTTPS' => '(tidak ada)',
+            'SERVER_PORT' => '-',
+            'DOCUMENT_ROOT' => '-',
+        );
+        foreach ($sv as $key => $default) {
+            $sv[$key] = isset($_SERVER[$key]) && $_SERVER[$key] !== ''
+                ? $_SERVER[$key] : $default;
+        }
+
+        $savePath = (string) $this->config->item('sess_save_path');
+        $writable = '-';
+        if ($savePath !== '' && is_dir($savePath)) {
+            $writable = is_writable($savePath) ? 'YA' : 'TIDAK - session tidak akan tersimpan';
+        } elseif ($savePath !== '') {
+            $writable = 'TIDAK - folder tidak ada';
+        }
+
+        $dbCheck = 'tidak';
+        $dbDetail = '';
+        $try = $this->db->query('SELECT 1');
+        if ($try !== false) {
+            $dbCheck = 'ya';
+        } else {
+            $dbDetail = 'query SELECT 1 gagal';
+        }
+
+        $d = array();
+        $d['ENVIRONMENT'] = ENVIRONMENT;
+        $d['PHP versi'] = PHP_VERSION . ' (' . PHP_INT_SIZE . ' bit)';
+        $d['display_errors'] = ini_get('display_errors') === '1' ? 'ON' : 'OFF';
+        $d['error_log'] = ini_get('error_log') !== '' ? ini_get('error_log') : '(default PHP)';
+        $d['base_url'] = (string) $this->config->item('base_url');
+        $d['REMOTE_ADDR'] = $ip !== '' ? $ip : '(kosong)';
+        $d['REMOTE_ADDR internal?'] = $this->is_internal_ip($ip) ? 'YA' : 'TIDAK';
+        $d['endpoint diizinkan?'] = $allowed ? 'YA' : 'TIDAK';
+        $d['restrict_to_internal'] = var_export(
+            (bool) $this->config->item('ipak_maintenance_restrict_to_internal'), true
+        );
+        $d['REQUEST_METHOD'] = $sv['REQUEST_METHOD'];
+        $d['REQUEST_URI'] = $sv['REQUEST_URI'];
+        $d['SCRIPT_NAME'] = $sv['SCRIPT_NAME'];
+        $d['X-Forwarded-For'] = $sv['HTTP_X_FORWARDED_FOR'];
+        $d['X-Forwarded-Proto'] = $sv['HTTP_X_FORWARDED_PROTO'];
+        $d['HTTPS'] = $sv['HTTPS'];
+        $d['SERVER_PORT'] = $sv['SERVER_PORT'];
+        $d['DOCUMENT_ROOT'] = $sv['DOCUMENT_ROOT'];
+        $d['session_id'] = session_id() !== '' ? session_id() : '(tidak ada - session gagal start)';
+        $d['session save_path'] = $savePath !== '' ? $savePath : '(kosong)';
+        $d['save_path writable?'] = $writable;
+        $d['maintenance_csrf tersimpan?'] = $this->session->userdata('maintenance_csrf_token') !== null
+            ? 'YA' : 'TIDAK';
+        $d['maintenance_csrf cocok?'] = $sv['REQUEST_METHOD'] === 'POST'
+            ? ($this->csrf_token_valid() ? 'YA' : 'TIDAK - token tidak cocok')
+            : 'n/a, baru diperiksa pada POST';
+        $d['CI CSRF name'] = $this->security->get_csrf_token_name();
+        $d['db host'] = (string) $this->db->hostname;
+        $d['db name'] = (string) $this->db->database;
+        $d['db connect'] = $dbCheck . ($dbDetail !== '' ? ' (' . $dbDetail . ')' : '');
+        $d['log CodeIgniter terakhir'] = $this->last_log_lines();
+        $d['galat PHP saat sinkronisasi'] = !empty($this->captured)
+            ? implode(' ;; ', $this->captured) : '(tidak ada)';
+
+        return $d;
+    }
+
+    /**
+     * Beberapa baris terakhir dari log CodeIgniter.
+     *
+     * @return string
+     */
+    private function last_log_lines()
+    {
+        $dir = APPPATH . 'logs';
+        if (!is_dir($dir)) {
+            return '(folder log tidak ada)';
+        }
+        $files = glob($dir . '/log-*.php');
+        if (empty($files)) {
+            return '(belum ada file log)';
+        }
+        $newest = max($files);
+        $lines = @file($newest, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false || empty($lines)) {
+            return '(log kosong: ' . basename($newest) . ')';
+        }
+        $tail = array_slice($lines, -5);
+        $clean = array();
+        foreach ($tail as $line) {
+            // Copot tag HTML bawaan CI agar mudah dibaca.
+            $line = preg_replace('#</?font[^>]*>#i', '', $line);
+            $clean[] = html_entity_decode(strip_tags($line), ENT_QUOTES, 'UTF-8');
+        }
+        return 'log-' . date('Y-m-d', filemtime($newest)) . ' :: ' . implode(' | ', $clean);
     }
 
     /**
