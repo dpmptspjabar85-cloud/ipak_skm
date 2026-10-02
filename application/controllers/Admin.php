@@ -463,6 +463,21 @@ class Admin extends CI_Controller
         $filterNotes = $this->excel_filter_notes($filters);
         $generatedAt = date('d-m-Y H:i:s');
 
+        // Excel hanya menerima 65.536 baris per sheet, sedangkan format panjang
+        // mengalikan jumlah responden dengan jumlah pertanyaan. Bila lewat
+        // batas, baris dipotong dan batasnya dicatat terbuka supaya data tidak
+        // hilang diam-diam. Gunakan filter tanggal yang lebih sempit.
+        $maxRows = 65000;
+        if (count($detailRows) > $maxRows) {
+            $detailRows = array_slice($detailRows, 0, $maxRows);
+            $filterNotes[] = [
+                'Kriteria' => 'Peringatan',
+                'Nilai' => 'Baris dipotong pada ' . $maxRows . ' baris. Format panjang '
+                    . 'mengalikan responden dengan pertanyaan, sehingga melewati batas 65.536 baris '
+                    . 'per sheet Excel. Persempit rentang tanggal untuk 나머anya.',
+            ];
+        }
+
         $this->load->library('Excel_writer');
         $excel = new Excel_writer();
 

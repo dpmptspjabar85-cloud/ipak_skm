@@ -93,10 +93,88 @@ class Excel_writer
         }
         $xml .= "\t\t" . '</ExcelWorksheets>' . "\n";
         $xml .= "\t" . '</ExcelWorkbook>' . "\n";
+        $xml .= $this->build_styles();
         foreach ($this->sheets as $sheet) {
             $xml .= $this->build_sheet($sheet);
         }
         $xml .= '</Workbook>';
+        return $xml;
+    }
+
+    /**
+     * Definisi gaya sel.
+     *
+     * Setiap sel merujuk StyleID di sini. Tanpa blok ini Excel menganggap
+     * berkas rusak dan hanya menampilkan dialog perbaikan, walau XML-nya
+     * sendiri valid.
+     *
+     * Urutan elemen di dalam Style mengikuti urutan yang ditulis Excel sendiri
+     * (Alignment, Borders, Font, Interior, NumberFormat, Protection).
+     *
+     * @return string
+     */
+    private function build_styles()
+    {
+        $border = '<Borders>'
+            . '<Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>'
+            . '</Borders>';
+
+        $xml = "\t" . '<Styles>' . "\n";
+        $xml .= "\t\t" . '<Style ss:ID="Default" ss:Name="Normal">'
+            . '<Alignment ss:Vertical="Top"/>'
+            . '<Borders/>'
+            . '<Font ss:FontName="Calibri" ss:Size="11"/>'
+            . '<Interior/>'
+            . '<NumberFormat/>'
+            . '<Protection/>'
+            . '</Style>' . "\n";
+
+        $xml .= "\t\t" . '<Style ss:ID="sTitle">'
+            . '<Alignment ss:Vertical="Center"/>'
+            . '<Borders/>'
+            . '<Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#1F3864"/>'
+            . '<Interior/>'
+            . '<NumberFormat/>'
+            . '<Protection/>'
+            . '</Style>' . "\n";
+
+        $xml .= "\t\t" . '<Style ss:ID="sHeader">'
+            . '<Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>'
+            . $border
+            . '<Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>'
+            . '<Interior ss:Color="#3049D8" ss:Pattern="Solid"/>'
+            . '<NumberFormat/>'
+            . '<Protection/>'
+            . '</Style>' . "\n";
+
+        $xml .= "\t\t" . '<Style ss:ID="sText">'
+            . '<Alignment ss:Vertical="Top" ss:WrapText="1"/>'
+            . $border
+            . '<Font ss:FontName="Calibri" ss:Size="11"/>'
+            . '<Interior/>'
+            . '<NumberFormat/>'
+            . '<Protection/>'
+            . '</Style>' . "\n";
+
+        $xml .= "\t\t" . '<Style ss:ID="sNumber">'
+            . '<Alignment ss:Horizontal="Right" ss:Vertical="Top"/>'
+            . $border
+            . '<Font ss:FontName="Calibri" ss:Size="11"/>'
+            . '<Interior/>'
+            . '<NumberFormat ss:Format="0.00"/>'
+            . '<Protection/>'
+            . '</Style>' . "\n";
+
+        $xml .= "\t\t" . '<Style ss:ID="sNote">'
+            . '<Alignment ss:Vertical="Top" ss:WrapText="1"/>'
+            . '<Borders/>'
+            . '<Font ss:FontName="Calibri" ss:Size="11" ss:Italic="1" ss:Color="#595959"/>'
+            . '<Interior/>'
+            . '<NumberFormat/>'
+            . '<Protection/>'
+            . '</Style>' . "\n";
+
+        $xml .= "\t" . '</Styles>' . "\n";
         return $xml;
     }
 
@@ -112,12 +190,21 @@ class Excel_writer
         );
         $columnCount = max(1, $columnCount);
 
+        // Baris yang benar-benar ditulis: judul (bila ada) + baris kosong +
+        // judul kolom + isi + catatan. ss:ExpandedRowCount harus cocok agar
+        // Excel tidak menghitung baris kosong di bagian bawah tabel.
+        $headerOffset = $sheet['title'] !== '' ? 2 : 0;
+        $totalRows = $headerOffset + 1 + count($sheet['rows']) + count($sheet['notes']);
+
         $xml = "\t" . '<Worksheet ss:Name="' . $this->escape($sheet['name']) . '">' . "\n";
         $xml .= "\t\t" . '<Table ss:ExpandedColumnCount="' . $columnCount . '"'
-            . ' ss:ExpandedRowCount="' . (count($sheet['rows']) + count($sheet['notes']) + 3) . '"'
-            . ' x:FullColumns="1" x:FullRows="1">'
+            . ' ss:ExpandedRowCount="' . max(1, $totalRows) . '"'
+            . ' x:FullColumns="1" x:FullRows="1"'
+            // Atribut harus ditulis sebelum tanda '>' penutup, jika tidak
+            // atribut ini menjadi teks di dalam <Table> dan Excel menolak
+            // berkas sebagai rusak.
             . ($sheet['freeze'] ? ' ss:DefaultRowHeight="15"' : '')
-            . "\n";
+            . '>' . "\n";
 
         if (!empty($sheet['widths'])) {
             $xml .= $this->build_columns($sheet['widths'], $columnCount);
@@ -166,10 +253,16 @@ class Excel_writer
 
         $xml .= "\t\t" . '</Table>' . "\n";
         if ($sheet['freeze']) {
+            // Baris yang dibekukan persis jumlah baris di atas judul kolom.
+            // Nilai sebelumnya menambah offset judul lagi sehingga jumlah baris
+            // beku melebihi baris yang benar-benar ada.
+            $frozenRows = $headerRowIndex;
             $xml .= "\t\t" . '<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">'
                 . '<PageSetup><Layout x:Orientation="Landscape"/></PageSetup>'
-                . '<SplitHorizontal>' . ($headerRowIndex + ($sheet['title'] !== '' ? 2 : 0)) . '</SplitHorizontal>'
-                . '<TopRowBottomPane>' . ($headerRowIndex + ($sheet['title'] !== '' ? 2 : 0)) . '</TopRowBottomPane>'
+                . '<Selected/>'
+                . '<FreezePanes/>'
+                . '<SplitHorizontal>' . $frozenRows . '</SplitHorizontal>'
+                . '<TopRowBottomPane>' . $frozenRows . '</TopRowBottomPane>'
                 . '<ActivePane>2</ActivePane>'
                 . '</WorksheetOptions>' . "\n";
         }
