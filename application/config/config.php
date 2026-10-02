@@ -52,7 +52,7 @@ $script_dir  = ($script_dir === DIRECTORY_SEPARATOR || $script_dir === '/' || $s
     ? ''
     : rtrim($script_dir, '/\\') . '/';
 
-$config['base_url'] = $scheme . $_SERVER['HTTP_HOST'] . '/' . $script_dir;
+$config['base_url'] = $scheme . $_SERVER['HTTP_HOST'] . $script_dir;
 // $config['base_url'] = 'https://' . $_SERVER['HTTP_HOST'] . '/ipak_skm/';
 
 /*
