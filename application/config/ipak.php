@@ -65,3 +65,26 @@ $config['ipak_score_categories'] = [
     ['min' => 65.00, 'label' => 'Cukup', 'color' => '#d97706'],
     ['min' => 0, 'label' => 'Perlu Perbaikan', 'color' => '#dc2626'],
 ];
+
+/*
+| Kredensial endpoint maintenance sync-database.php
+|
+| Nilai diambil dari .env, tidak pernah ditulis langsung di sini. Bila .env
+| belum diisi, endpoint menolak berjalan dan menampilkan pesan konfigurasi,
+| bukan memakai kredensial bawaan apa pun.
+|
+|   IPAK_MAINT_ID         = id maintenance
+|   IPAK_MAINT_PASSWORD   = password maintenance
+|   IPAK_MAINT_ALLOWED_IPS= daftar IP dipisah koma, kosong = semua IP
+*/
+$config['ipak_maintenance_id'] = getenv('IPAK_MAINT_ID') !== false
+    ? getenv('IPAK_MAINT_ID')
+    : '';
+$config['ipak_maintenance_password'] = getenv('IPAK_MAINT_PASSWORD') !== false
+    ? getenv('IPAK_MAINT_PASSWORD')
+    : '';
+$config['ipak_maintenance_allowed_ips'] = getenv('IPAK_MAINT_ALLOWED_IPS') !== false
+    ? getenv('IPAK_MAINT_ALLOWED_IPS')
+    : '';
+$config['ipak_maintenance_max_attempts'] = 5;
+$config['ipak_maintenance_lockout_minutes'] = 15;
