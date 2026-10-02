@@ -52,7 +52,10 @@ $script_dir  = ($script_dir === DIRECTORY_SEPARATOR || $script_dir === '/' || $s
     ? ''
     : rtrim($script_dir, '/\\') . '/';
 
-$config['base_url'] = $scheme . $_SERVER['HTTP_HOST'] . $script_dir;
+// $config['base_url'] = $scheme . $_SERVER['HTTP_HOST'] . $script_dir;
+$config['base_url'] = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') 
+    . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost'))
+    . '/ipak_skm/';
 // $config['base_url'] = 'https://' . $_SERVER['HTTP_HOST'] . '/ipak_skm/';
 
 /*
