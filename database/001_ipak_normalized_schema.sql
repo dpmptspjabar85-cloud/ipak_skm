@@ -1,3 +1,11 @@
+-- Upgrade safety (MySQL 5.6 compatible): tabel mungkin sudah ada dari versi lama.
+-- Tambah kolom created_at/updated_at hanya jika belum ada.
+SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_questions' AND COLUMN_NAME = 'created_at');
+SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_questions ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER is_active, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', 'SELECT "ipak_questions already has created_at/updated_at"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 CREATE TABLE IF NOT EXISTS ipak_questions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     question_code VARCHAR(20) NOT NULL,
@@ -14,7 +22,14 @@ CREATE TABLE IF NOT EXISTS ipak_questions (
     KEY idx_ipak_question_active_order (is_active, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
-CREATE TABLE IF NOT EXISTS ipak_answer_options (
+-- Upgrade safety (MySQL 5.6 compatible):
+SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_answer_options' AND COLUMN_NAME = 'created_at');
+SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_answer_options ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER is_active, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', 'SELECT "ipak_answer_options already has created_at/updated_at"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+CREATE TABLE IF NOT EXISTS ipak_answer_options (...
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     question_id INT UNSIGNED NOT NULL,
     option_code VARCHAR(20) NOT NULL,
@@ -32,6 +47,13 @@ CREATE TABLE IF NOT EXISTS ipak_answer_options (
         FOREIGN KEY (question_id) REFERENCES ipak_questions (id)
         ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+-- Upgrade safety (MySQL 5.6 compatible):
+SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_response_answers' AND COLUMN_NAME = 'created_at');
+SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_response_answers ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER category_snapshot', 'SELECT "ipak_response_answers already has created_at"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS ipak_response_answers (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -61,6 +83,13 @@ CREATE TABLE IF NOT EXISTS ipak_response_answers (
         FOREIGN KEY (answer_option_id) REFERENCES ipak_answer_options (id)
         ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+-- Upgrade safety (MySQL 5.6 compatible):
+SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_admin_roles' AND COLUMN_NAME = 'created_at');
+SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_admin_roles ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER role_name, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', 'SELECT "ipak_admin_roles already has created_at/updated_at"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS ipak_admin_roles (
     user_id INT(10) NOT NULL,
