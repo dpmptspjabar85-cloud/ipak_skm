@@ -1,21 +1,130 @@
+# =============================================================================
+#  Proteksi akses file + routing CodeIgniter 3
+# =============================================================================
+#  PENTING
+#  Seluruh aturan file ini HANYA berlaku pada Apache yang mengizinkan
+#  AllowOverride (umumnya AllowOverride All di hosting cPanel). Bila server
+#  memakai nginx, .htaccess diabaikan sama sekali dan aturan yang sama harus
+#  ditulis manual di blok server { }. Periksa dulu sebelum meng Andalkan file ini.
+#
+#  <Files>/<FilesMatch> di bagian bawah memakai "Require", yang butuh
+#  AllowOverride AuthConfig. Bila hosting hanya mengizinkan FileInfo, hapus
+#  blok <FilesMatch> tersebut; aturan RewriteRule di bawah sudah cukup.
+#
+#  Baris "Options" juga butuh AllowOverride Options. Bila setelah upload
+#  muncul galat "Options not allowed here" / 500, hapus HANYA baris Options
+#  tersebut. Sisanya tetap aman.
+#
+#  Baris ServerSignature butuh AllowOverride Info.
+#
+#  Urutan WAJIB: seluruh aturan blokir ditulis sebelum rule routing CI.
+# =============================================================================
+
+Options -Indexes -ExecCGI
+ServerSignature Off
+
+<IfModule mod_headers.c>
+	Header always set X-Content-Type-Options "nosniff"
+	Header always set X-Frame-Options "SAMEORIGIN"
+	Header always set Referrer-Policy "strict-origin-when-cross-origin"
+	Header always unset X-Powered-By
+	Header always unset Server
+	TraceEnable Off
+</IfModule>
+
 <IfModule mod_rewrite.c>
-RewriteEngine On
+	RewriteEngine On
 
-# === Redirect Survei.php tanpa query ke folder /jelita/perizinan/skm/ ===
-RewriteCond %{THE_REQUEST} \s/+jelita/perizinan/skm/Survei\.php[\s?] [NC]
-RewriteCond %{QUERY_STRING} ^$
-RewriteRule ^Survei\.php$ /jelita/perizinan/skm/survey/add [R=301,L]
+	# =========================================================================
+	#  1. REDIRECT LEGACY
+	#  -------------------------------------------------------------------------
+	#  Semua target ditulis RELATIF terhadap folder tempat .htaccess ini berada,
+	#  bukan absolut seperti /jelita/perizinan/skm/... Folder instalasi bisa
+	#  dipindah (/jelita/perizinan/skm, /ipak_skm, /var/www/html/ipak_skm)
+	#  tanpa perlu menyentuh aturan ini. Pada .htaccess, substitusi tanpa garis
+	#  miring depan otomatis diprefiks dengan folder aplikasi, jadi hasilnya
+	#  selalu menunjuk ke aplikasi yang sedang berjalan.
+	# =========================================================================
 
-# === Redirect Survei.php?qry=add ke survei/question dengan CODE=frontoffice ===
-RewriteCond %{THE_REQUEST} \s/+jelita/perizinan/skm/Survei\.php [NC]
-RewriteCond %{QUERY_STRING} (^|&)qry=add(&|$) [NC]
-RewriteCond %{QUERY_STRING} (?:^|&)url=([^&]+) [NC]
-RewriteRule ^Survei\.php$ /jelita/perizinan/skm/survey/question?CODE=frontoffice&url=%1 [R=301,L,NE]
+	# === Survei.php tanpa query -> survey/add ===
+	RewriteCond %{THE_REQUEST} \s+Survei\.php[\s?] [NC]
+	RewriteCond %{QUERY_STRING} ^$
+	RewriteRule ^Survei\.php$ survey/add [R=301,L]
 
-# === Rule default CodeIgniter ===
-RewriteCond $1 !^(index\.php|resources|robots\.txt)
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php?/$1 [L,QSA]
+	# === Survei.php?qry=add -> survey/question dengan CODE=frontoffice ===
+	RewriteCond %{THE_REQUEST} \s+Survei\.php [NC]
+	RewriteCond %{QUERY_STRING} (^|&)qry=add(&|$) [NC]
+	RewriteCond %{QUERY_STRING} (?:^|&)url=([^&]+) [NC]
+	RewriteRule ^Survei\.php$ survey/question?CODE=frontoffice&url=%1 [R=301,L,NE]
+
+	# =========================================================================
+	#  2. BLOKIR DIREKTORI SENSITIF
+	#     Berisi source PHP, .env, basis data, dan salinan aplikasi.
+	#     .env memuat password database serta password maintenance, sehingga
+	#     membocorkannya sama dengan membuka seluruh aplikasi.
+	# =========================================================================
+	RewriteRule ^(?:application|system|vendor|agency|database)/ - [R=404,L]
+	RewriteRule ^(?:SIAP_UPLOAD_SERVER_APLIKASI|\.git|\.kilo|\.github|\.vscode|\.idea)/? - [R=404,L]
+
+	# =========================================================================
+	#  3. BLOKIR BERKAS SENSITIF, DI MANA SAJA DALAM PATH
+	# =========================================================================
+
+	# --- .env dan turunannya (.env, .env.example, .env.local, ...) ---
+	RewriteRule (^|/)\.env($|\.) - [R=404,L]
+
+	# --- Dump basis data, log, backup, dan konfigurasi server ---
+	#     .json sengaja TIDAK diblokir karena assets JSON masih dipakai aplikasi.
+	RewriteRule \.(?:sql|bak|log|dist|ini|yml|yaml|sh|sqlite|sqlite3|db|swp|dump|tar|gz|zip|7z)$ - [R=404,L]
+
+	# --- Berkas konfigurasi build/dependency di root ---
+	RewriteRule ^(?:composer\.(?:json|lock)|package(?:-lock)?\.json|yarn\.lock|phpunit\.xml.*|Dockerfile.*|docker-compose.*)$ - [R=404,L]
+
+	# =========================================================================
+	#  4. BLOKIR SKRIP DEBUG / BACKDOOR DI ROOT
+	#     Berkas .php yang ada di root diserve langsung oleh Apache, karena
+	#     rule CI hanya meneruskan path yang TIDAK berupa file nyata. Karena itu
+	#     skrip seperti fix_password.php yang bisa mengubah password admin
+	#     harus diblokir secara eksplisit, bukan mengandalkan rule CI.
+	#     router.php hanya untuk server bawaan PHP dan tidak perlu di publik.
+	#     Catatan: sync-database.php SENGAJA tidak diblokir, itu endpoint
+	#     maintenance resmi. Amankannya datang dari IPAK_MAINT_ALLOWED_IPS.
+	# =========================================================================
+	RewriteRule ^(?:fix_password|router|test_[A-Za-z0-9_]*)\.php$ - [R=404,L]
+
+	# =========================================================================
+	#  5. ROUTING CODEIGNITER
+	#     Harus paling akhir. Conditions -f dan -d membuat Apache melayani
+	#     berkas/direktori nyata langsung, jadi semua yang perlu diblokir harus
+	#     sudah tertangkap aturan di atas.
+	# =========================================================================
+	RewriteCond $1 !^(index\.php|resources|robots\.txt)
+	RewriteCond %{REQUEST_FILENAME} !-f
+	RewriteCond %{REQUEST_FILENAME} !-d
+	RewriteRule ^(.*)$ index.php?/$1 [L,QSA]
 
 </IfModule>
+
+# =============================================================================
+#  6. PENGAMAN LAPIS KEDUA
+#     Masih berlaku bila mod_rewrite dimatikan, karena blok ini tidak memakai
+#     rewrite. Butuh AllowOverride AuthConfig.
+# =============================================================================
+<FilesMatch "(?i)^(\.env|\.env\..*|composer\.(json|lock)|package(-lock)?\.json|yarn\.lock|Dockerfile.*|docker-compose.*|.*\.(sql|bak|log|dist|ini|yml|yaml|sh|sqlite|sqlite3|db|swp|dump))$">
+	<IfModule authz_core_module>
+		Require all denied
+	</IfModule>
+	<IfModule !authz_core_module>
+		Order allow,deny
+		Deny from all
+	</IfModule>
+</FilesMatch>
+
+# =============================================================================
+#  CATATAN
+#  Jangan pernah memakai "php_flag engine off" di sini. Berkas .htaccess pada
+#  root berlaku untuk SELURUH situs, sehingga perintah itu akan mematikan PHP
+#  juga untuk index.php dan aplikasi tidak akan bisa jalan sama sekali.
+#  Pencegahan eksekusi PHP di folder data diatur lewat .htaccess deny-all
+#  per folder, bukan lewat php_flag global.
+# =============================================================================

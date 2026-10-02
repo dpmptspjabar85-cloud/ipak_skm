@@ -28,13 +28,22 @@ date_default_timezone_set('Asia/Jakarta');
 /*
 | Deteksi URL termasuk subfolder deployment.
 |
-| Contoh:
-|   /jelita/perizinan/ipak_skm/index.php
-| menghasilkan:
-|   https://domain/jelita/perizinan/ipak_skm/
+| base_url disusun otomatis dari HTTP_HOST dan lokasi index.php, sehingga
+| aplikasi tetap benar saat foldernya dipindah, misalnya:
 |
-| IPAK_BASE_URL dapat diisi pada environment server bila URL publik berbeda
-| dengan URL yang diterima PHP (reverse proxy).
+|   /jelita/perizinan/ipak_skm/index.php  -> https://domain/jelita/perizinan/ipak_skm/
+|   /ipak_skm/index.php                   -> https://domain/ipak_skm/
+|
+| Urutan disengaja: deteksi otomatis didahulukan. Nilai IPAK_BASE_URL yang
+| tertinggal dari deployment lama (misalnya masih menunjuk /jelita/perizinan)
+| akan membuat seluruh site_url() mengarah ke URL yang sudah tidak ada, dan
+| itu salah satu penyebab form login terkirim ke alamat mati.
+|
+| IPAK_BASE_URL hanya dipakai sebagai cadangan bila PHP tidak menerima
+| HTTP_HOST. Bila aplikasi benar-benar di belakang reverse proxy sehingga
+| host yang diterima PHP berbeda dari host publik, isi IPAK_BASE_URL dengan
+| URL publik yang BENAR dan hapus blok elseif di bawah agar nilai itu
+| didahulukan.
 */
 $ipakConfiguredBaseUrl = getenv('IPAK_BASE_URL');
 

@@ -13,6 +13,13 @@ application/config/database.php
 # Log server lokal
 *.log
 
+# Skrip debug, probe, dan utilitas password. Hanya untuk mesin lokal.
+# fix_password.php pernah bisa mengubah password admin tanpa autentikasi,
+# jadi tidak boleh pernah ikut ter-commit maupun ter-upload.
+/fix_password.php
+/test_*.php
+/diagnosa.php
+
 # File sementara dan hasil pengujian
 tmp/
 database/_test_*.sql

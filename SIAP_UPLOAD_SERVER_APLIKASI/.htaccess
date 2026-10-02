@@ -1,0 +1,9 @@
+# Folder ini berisi salinan lengkap aplikasi untuk keperluan upload:
+# kode, konfigurasi, dan kemungkinan kredensial. Wajib tertutup.
+<IfModule authz_core_module>
+	Require all denied
+</IfModule>
+<IfModule !authz_core_module>
+	Order allow,deny
+	Deny from all
+</IfModule>

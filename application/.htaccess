@@ -1,0 +1,14 @@
+# Lapisan kedua: tolak semua akses langsung ke folder ini.
+# Root .htaccess sudah memblokir path ini, namun aturan per folder tetap
+# dipasang supaya tetap aman bila root .htaccess tidak terbaca atau
+# Eventually dilewati oleh konfigurasi web server.
+#
+# Semua permintaan aplikasi tetap lewat index.php, sehingga menutup folder
+# ini tidak memutus fungsi apa pun.
+<IfModule authz_core_module>
+	Require all denied
+</IfModule>
+<IfModule !authz_core_module>
+	Order allow,deny
+	Deny from all
+</IfModule>

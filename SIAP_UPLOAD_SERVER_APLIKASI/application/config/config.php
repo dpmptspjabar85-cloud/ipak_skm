@@ -36,11 +36,27 @@ date_default_timezone_set('Asia/Jakarta');
 | IPAK_BASE_URL dapat diisi pada environment server bila URL publik berbeda
 | dengan URL yang diterima PHP (reverse proxy).
 */
+/*
+| Deteksi URL termasuk subfolder deployment.
+|
+| base_url disusun otomatis dari HTTP_HOST dan lokasi index.php, sehingga
+| aplikasi tetap benar saat foldernya dipindah, misalnya:
+|
+|   /jelita/perizinan/ipak_skm/index.php  -> https://domain/jelita/perizinan/ipak_skm/
+|   /ipak_skm/index.php                   -> https://domain/ipak_skm/
+|
+| Urutan disengaja: deteksi otomatis didahulukan. Nilai IPAK_BASE_URL yang
+| tertinggal dari deployment lama akan membuat seluruh site_url() mengarah ke
+| URL yang sudah tidak ada.
+|
+| IPAK_BASE_URL hanya dipakai sebagai cadangan bila PHP tidak menerima
+| HTTP_HOST. Bila aplikasi benar-benar di belakang reverse proxy, isi
+| IPAK_BASE_URL dengan URL publik yang BENAR dan hapus blok elseif di bawah
+| agar nilai itu didahulukan.
+*/
 $ipakConfiguredBaseUrl = getenv('IPAK_BASE_URL');
 
-if ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
-    $config['base_url'] = rtrim(trim($ipakConfiguredBaseUrl), '/') . '/';
-} elseif (isset($_SERVER['HTTP_HOST'])) {
+if (isset($_SERVER['HTTP_HOST'])) {
     $ipakForwardedProto = isset($_SERVER['HTTP_X_FORWARDED_PROTO'])
         ? strtolower(trim(explode(',', $_SERVER['HTTP_X_FORWARDED_PROTO'])[0]))
         : '';
@@ -53,6 +69,8 @@ if ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
     $ipakBasePath = ($ipakBasePath === '/' || $ipakBasePath === '.') ? '' : '/' . trim($ipakBasePath, '/');
 
     $config['base_url'] = $ipakScheme . $_SERVER['HTTP_HOST'] . $ipakBasePath . '/';
+} elseif ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
+    $config['base_url'] = rtrim(trim($ipakConfiguredBaseUrl), '/') . '/';
 } else {
     $config['base_url'] = 'http://127.0.0.1/';
 }
