@@ -76,11 +76,7 @@
     <?php endforeach; ?>
 <?php endif; ?>
 
-<?php if (!$ip_allowed): ?>
-    <div class="banner warn">Alamat IP Anda tidak ada di daftar putih maintenance.</div>
-<?php endif; ?>
-
-<?php if ($configured && $ran && is_array($results)): ?>
+<?php if ($ran && is_array($results)): ?>
     <?php
     $tablesCreated = isset($results['tables_created']) ? $results['tables_created'] : [];
     $tablesExisted = isset($results['tables_existed']) ? $results['tables_existed'] : [];
@@ -236,20 +232,27 @@
     <h1>Sinkronisasi Database</h1>
     <p class="muted">Utility maintenance. Jalankan struktur tabel dan field yang diperlukan aplikasi.</p>
 
+<?php if ($allowed): ?>
+    <div class="banner info">
+        Alamat IP <strong><?= htmlspecialchars($client_ip, ENT_QUOTES, 'UTF-8') ?></strong>
+        terdeteksi sebagai jaringan internal, sinkronisasi dapat dijalankan.
+    </div>
+
     <form method="post" action="<?= htmlspecialchars(site_url('maintenance/sync_database'), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="<?= htmlspecialchars($ci_csrf_name, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($ci_csrf_hash, ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="maintenance_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
 
-        <label for="maintenance_id">ID</label>
-        <input type="text" id="maintenance_id" name="maintenance_id" autocomplete="username" required>
-
-        <label for="maintenance_password">Password</label>
-        <input type="password" id="maintenance_password" name="maintenance_password" autocomplete="current-password" required>
-
-        <button type="submit"<?= (!$configured || !$ip_allowed) ? ' disabled' : '' ?>>Sync Database</button>
+        <button type="submit">Sync Database</button>
     </form>
 
     <p class="status-line">Sinkronisasi hanya berjalan pada pengiriman form di atas. Memuat ulang halaman ini tidak menjalankan sinkronisasi.</p>
+<?php else: ?>
+    <div class="banner bad">
+        Alamat IP <strong><?= htmlspecialchars($client_ip === '' ? 'tidak terbaca' : $client_ip, ENT_QUOTES, 'UTF-8') ?></strong>
+        bukan jaringan internal, sinkronisasi dinonaktifkan.
+    </div>
+    <p class="status-line">Endpoint ini hanya dapat dijalankan dari jaringan internal. Hubungi pengelola server bila Anda berada di jaringan yang seharusnya berwenang.</p>
+<?php endif; ?>
 </div>
 
 </div>

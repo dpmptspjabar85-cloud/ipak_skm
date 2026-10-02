@@ -67,27 +67,26 @@ $config['ipak_score_categories'] = [
 ];
 
 /*
-| Kredensial endpoint maintenance sync-database.php
+| Endpoint maintenance sync-database.php
 |
-| Nilai TIDAK ditulis di sini. Berkas ini ikut ter-commit, sehingga
-| password di dalamnya berarti password ikut tersebar ke repository.
+| Endpoint ini TIDAK memakai login backoffice dan tidak meminta ID maupun
+| password. Pembatasnya adalah asal jaringan.
 |
-| Letakkan kredensial di application/config/production/ipak.php, yang
-| CodeIgniter otomatis menggabungkannya pada ENVIRONMENT = production dan
-| tidak ikut ter-commit. Endpoint menolak berjalan bila ID atau Password
-| kosong, jadi tanpa berkas itu endpoint tidak akan aktif sama sekali.
+| ipak_maintenance_restrict_to_internal
+|   true  = sinkronisasi hanya jalan bila REMOTE_ADDR berada di jaringan
+|           internal (loopback, 10/8, 172.16/12, 192.168/16, 169.254/16).
+|           Nilai ini yang dipakai di server.
+|   false = abaikan pembatasan IP. HANYA untuk mesin development lokal,
+|           jangan dipakai di server yang bisa dijangkau internet.
 |
-|   $config['ipak_maintenance_id']          = '...';
-|   $config['ipak_maintenance_password']    = '...';
-|   $config['ipak_maintenance_allowed_ips'] = '...';
+| ipak_maintenance_blocked_ips
+|   Daftar IP yang secara khusus dilarang, dipisah koma. Dipakai bila
+|   ada jaringan internal yang tidak boleh menjalankan sinkronisasi.
+|   Kosong berarti tidak ada pengecualian.
 |
-| Untuk development lokal, buat application/config/development/ipak.php
-| dengan isi serupa bila endpoint perlu diuji.
+| Peringatan: sync_database() menjalankan DDL terhadap database, yaitu
+| CREATE TABLE, ALTER TABLE, dan ADD COLUMN. Jangan pernah memasang
+| endpoint ini di server publik tanpa pembatas jaringan lain.
 */
-$config['ipak_maintenance_id'] = '';
-$config['ipak_maintenance_password'] = '';
-$config['ipak_maintenance_allowed_ips'] = '';
-
-// Batas percobaan login gagal sebelum endpoint dikunci sementara.
-$config['ipak_maintenance_max_attempts'] = 5;
-$config['ipak_maintenance_lockout_minutes'] = 15;
+$config['ipak_maintenance_restrict_to_internal'] = true;
+$config['ipak_maintenance_blocked_ips'] = '';

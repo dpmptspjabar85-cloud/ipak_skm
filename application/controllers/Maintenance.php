@@ -5,19 +5,28 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * Endpoint maintenance sinkronisasi database.
  *
  * Dipanggil lewat sync-database.php di root, bukan lewat routing publik.
- * Autentikasi, POST, dan CSRF ditangani di sini secara mandiri; login
- * backoffice tidak diubah dan tidak dilewati.
+ * Tidak memakai login backoffice dan tidak meminta ID maupun password.
+ *
+ * Pembatasnya adalah asal jaringan: sinkronisasi hanya berjalan bila request
+ * datang dari jaringan internal. Alamat IP privat (10/8, 172.16/12,
+ * 192.168/16, 127/8, dan IPv6 loopback) tidak dapat diusuulkan dari internet
+ * publik, jadi ini batas yang nyata, bukan sekadar menyamarkan URL.
+ *
+ * CATATAN KEAMANAN
+ * Fungsi sync_database() menjalankan DDL terhadap database: CREATE TABLE,
+ * ALTER TABLE, dan ADD COLUMN. Endpoint ini karena itu TIDAK boleh dipasang
+ * di server yang bisa dijangkau publik tanpa pembatas jaringan tambahan.
  *
  * Yang dipanggil tetap Ipaksurvey_model::sync_database() supaya tidak ada
  * logika sinkronisasi kedua di aplikasi.
+ *
+ * @see application/config/ipak.php
+ * @see Ipaksurvey_model::sync_database()
  */
 class Maintenance extends CI_Controller
 {
     /** @var array Pesan kesalahan untuk ditampilkan di halaman. */
     private $errors = array();
-
-    /** @var string Nama berkas penanda jumlah percobaan gagal. */
-    private $attemptFile;
 
     public function __construct()
     {
@@ -25,52 +34,34 @@ class Maintenance extends CI_Controller
         $this->load->model('Ipaksurvey_model', 'ipak');
         $this->config->load('ipak');
         $this->load->helper('url');
-        $this->attemptFile = $this->attempt_file_path();
     }
 
     /**
-     * Satu-satunya method yang dipanggil. Menyampilkan form pada GET dan
-     * menjalankan sinkronisasi hanya pada POST yang sah.
+     * Satu-satunya method yang dipanggil. Menampilkan tombol pada GET dan
+     * menjalankan sinkronisasi hanya pada POST dari jaringan internal.
      *
      * @return void
      */
     public function sync_database()
     {
-        $configured = $this->credentials_configured();
-        $ipAllowed = $this->ip_allowed();
-
-        if (!$configured) {
-            $this->errors[] = 'Kredensial maintenance belum diisi di '
-                . 'application/config/' . ENVIRONMENT . '/ipak.php '
-                . '(ipak_maintenance_id dan ipak_maintenance_password). '
-                . 'Endpoint dinonaktifkan sampai keduanya tersedia.';
-        }
-
-        if (!$ipAllowed) {
-            $this->errors[] = 'Alamat IP ini tidak ada di daftar '
-                . 'ipak_maintenance_allowed_ips, jadi endpoint dinonaktifkan.';
-        }
+        $allowed = $this->request_allowed();
+        $ip = $this->client_ip();
 
         $results = null;
         $ran = false;
 
         // method() mengembalikan huruf kecil pada versi CodeIgniter ini, jadi
         // dibandingkan setelah diubah ke huruf besar.
-        if (strtoupper($this->input->method()) === 'POST' && $configured && $ipAllowed) {
-            $lock = $this->lockout_remaining();
-            if ($lock > 0) {
-                $this->errors[] = 'Terlalu banyak percobaan gagal. Coba lagi dalam '
-                    . ceil($lock / 60) . ' menit.';
+        if (strtoupper($this->input->method()) === 'POST') {
+            if (!$allowed) {
+                $this->errors[] = 'Sinkronisasi hanya dapat dijalankan dari '
+                    . 'jaringan internal.';
             } elseif (!$this->csrf_token_valid()) {
                 $this->errors[] = 'Token keamanan tidak valid atau kedaluwarsa. '
                     . 'Muat ulang halaman lalu coba lagi.';
-            } elseif ($this->credentials_valid()) {
-                $this->clear_attempts();
+            } else {
                 $results = $this->ipak->sync_database();
                 $ran = true;
-            } else {
-                $this->register_failure();
-                $this->errors[] = 'ID atau Password tidak sesuai.';
             }
         }
 
@@ -78,8 +69,8 @@ class Maintenance extends CI_Controller
             'ran' => $ran,
             'results' => $results,
             'errors' => $this->errors,
-            'configured' => $configured,
-            'ip_allowed' => $ipAllowed,
+            'allowed' => $allowed,
+            'client_ip' => $ip,
             'csrf_token' => $this->csrf_token(),
             'db_name' => (string) $this->db->database,
             // Token milik CodeIgniter sendiri. Pengaman CSRF bawaan framework
@@ -90,56 +81,99 @@ class Maintenance extends CI_Controller
     }
 
     /**
-     * Apakah kredensial maintenance sudah diisi di .env.
+     * Apakah request ini boleh menjalankan sinkronisasi.
+     *
+     * Dua syarat, keduanya harus lolos:
+     *   1..ipak_maintenance_restrict_to_internal tidak dimatikan, maka IP
+     *      pengirim harus berada di jaringan internal; dan
+     *   2. IP tersebut tidak boleh terblokir oleh ipak_maintenance_blocked_ips.
      *
      * @return bool
      */
-    private function credentials_configured()
+    private function request_allowed()
     {
-        $id = (string) $this->config->item('ipak_maintenance_id');
-        $password = (string) $this->config->item('ipak_maintenance_password');
-        return trim($id) !== '' && $password !== '';
+        $ip = $this->client_ip();
+
+        if (trim((string) $this->config->item('ipak_maintenance_blocked_ips')) !== '') {
+            foreach (explode(',', (string) $this->config->item('ipak_maintenance_blocked_ips')) as $candidate) {
+                if (trim($candidate) === $ip && $ip !== '') {
+                    return false;
+                }
+            }
+        }
+
+        $restrict = $this->config->item('ipak_maintenance_restrict_to_internal');
+        $restrict = ($restrict === null || $restrict === '') ? true : (bool) $restrict;
+
+        return $restrict ? $this->is_internal_ip($ip) : true;
     }
 
     /**
-     * Pembatasan IP bila ipak_maintenance_allowed_ips diisi.
+     * Apakah alamat IP berada di jaringan internal.
      *
+     * Loopback, 10/8, 172.16/12, 192.168/16, dan 169.254/16 link-local
+     * dianggap internal, ditambah IPv6 loopback. Alamat IPv4 yang dibungkus
+     * IPv6 seperti ::ffff:192.168.1.10 dipisahkan lebih dulu.
+     *
+     * @param string $ip
      * @return bool
      */
-    private function ip_allowed()
+    private function is_internal_ip($ip)
     {
-        $allowed = trim((string) $this->config->item('ipak_maintenance_allowed_ips'));
-        if ($allowed === '') {
-            return true;
+        if ($ip === '') {
+            return false;
         }
-        $ip = $this->client_ip();
-        foreach (explode(',', $allowed) as $candidate) {
-            if (trim($candidate) === $ip) {
-                return true;
-            }
+
+        // IPv4 dalam bentuk IPv6, contoh ::ffff:192.168.1.10
+        if (stripos($ip, '::ffff:') === 0) {
+            $ip = substr($ip, 7);
         }
+
+        // Perbandingan dilakukan pada byte hasil inet_pton, bukan lewat
+        // ip2long(). Pada PHP 32-bit ip2long() mengembalikan nilai negatif
+        // untuk alamat mulai 128.0.0.0, sehingga pergeseran bitnya salah dan
+        // 192.168/16 terbaca sebagai bukan jaringan internal.
+        $packed = @inet_pton($ip);
+        if ($packed === false) {
+            return false;
+        }
+
+        if (strlen($packed) === 16) {
+            // IPv6: hanya loopback ::1 yang diizinkan
+            return $packed === str_repeat("\0", 15) . "\1";
+        }
+        if (strlen($packed) !== 4) {
+            return false;
+        }
+
+        $a = ord($packed[0]);
+        $b = ord($packed[1]);
+
+        if ($a === 127) {
+            return true; // 127.0.0.0/8 loopback
+        }
+        if ($a === 10) {
+            return true; // 10.0.0.0/8
+        }
+        if ($a === 172 && $b >= 16 && $b <= 31) {
+            return true; // 172.16.0.0/12
+        }
+        if ($a === 192 && $b === 168) {
+            return true; // 192.168.0.0/16
+        }
+        if ($a === 169 && $b === 254) {
+            return true; // 169.254.0.0/16 link-local
+        }
+
         return false;
     }
 
     /**
-     * Validasi ID dan Password dengan perbandingan waktu-tetap.
-     *
-     * @return bool
+     * @return string
      */
-    private function credentials_valid()
+    private function client_ip()
     {
-        $expectedId = (string) $this->config->item('ipak_maintenance_id');
-        $expectedPassword = (string) $this->config->item('ipak_maintenance_password');
-
-        $givenId = (string) $this->input->post('maintenance_id', true);
-        $givenPassword = (string) $this->input->post('maintenance_password', false);
-
-        // Dua perbandingan selalu dijalankan supaya waktu prosesnya tidak
-        // membocorkan bagian mana yang salah.
-        $idOk = hash_equals($expectedId, $givenId);
-        $passwordOk = hash_equals($expectedPassword, $givenPassword);
-
-        return $idOk && $passwordOk;
+        return isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : '';
     }
 
     /**
@@ -152,7 +186,7 @@ class Maintenance extends CI_Controller
         $token = $this->session->userdata('maintenance_csrf_token');
         if (!is_string($token) || strlen($token) !== 40) {
             // openssl bisa tidak tersedia pada konfigurasi PHP minimal, dan
-            // endpoint harus tetap bisa membuka formulirnya.
+            // endpoint harus tetap bisa membuka halamannya.
             $token = function_exists('openssl_random_pseudo_bytes')
                 ? bin2hex(openssl_random_pseudo_bytes(20))
                 : sha1(uniqid((string) mt_rand(), true));
@@ -172,92 +206,5 @@ class Maintenance extends CI_Controller
             return false;
         }
         return hash_equals($expected, $given);
-    }
-
-    /**
-     * Sisa waktu kunci dalam detik, 0 bila tidak terkunci.
-     *
-     * @return int
-     */
-    private function lockout_remaining()
-    {
-        $state = $this->read_attempts();
-        if ($state['attempts'] < (int) $this->config->item('ipak_maintenance_max_attempts')) {
-            return 0;
-        }
-        $elapsed = time() - $state['last'];
-        $limit = (int) $this->config->item('ipak_maintenance_lockout_minutes') * 60;
-        if ($elapsed >= $limit) {
-            $this->clear_attempts();
-            return 0;
-        }
-        return $limit - $elapsed;
-    }
-
-    /**
-     * Mencatat satu percobaan gagal.
-     *
-     * @return void
-     */
-    private function register_failure()
-    {
-        $state = $this->read_attempts();
-        $state['attempts']++;
-        $state['last'] = time();
-        @file_put_contents($this->attemptFile, json_encode($state), LOCK_EX);
-    }
-
-    /**
-     * @return void
-     */
-    private function clear_attempts()
-    {
-        if (is_file($this->attemptFile)) {
-            @unlink($this->attemptFile);
-        }
-    }
-
-    /**
-     * @return array
-     */
-    private function read_attempts()
-    {
-        $default = ['attempts' => 0, 'last' => 0];
-        if (!is_file($this->attemptFile)) {
-            return $default;
-        }
-        $raw = @file_get_contents($this->attemptFile);
-        $decoded = json_decode((string) $raw, true);
-        if (!is_array($decoded) || !isset($decoded['attempts'])) {
-            return $default;
-        }
-        return [
-            'attempts' => (int) $decoded['attempts'],
-            'last' => isset($decoded['last']) ? (int) $decoded['last'] : 0,
-        ];
-    }
-
-    /**
-     * Lokasi berkas penanda percobaan, di luar document root.
-     *
-     * Dibatasi per IP. Bila memakai satu berkas bersama, siapa pun bisa mengunci
-     * endpoint untuk semua orang lain hanya dengan mengirim lima permintaan
-     * buruk, dan satu salah ketik admin pun terkunci untuk Pengunjungnya.
-     *
-     * @return string
-     */
-    private function attempt_file_path()
-    {
-        // Hash dipakai supaya nilai IP tidak pernah menjadi bagian dari path.
-        $key = substr(sha1('ipak-maintenance|' . $this->client_ip()), 0, 16);
-        return sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ipak_maintenance_lock_' . $key . '.json';
-    }
-
-    /**
-     * @return string
-     */
-    private function client_ip()
-    {
-        return isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : '';
     }
 }

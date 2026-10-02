@@ -2,25 +2,32 @@
 /**
  * Endpoint maintenance untuk menjalankan sinkronisasi struktur database.
  *
- * File ini adalah pintu masuk mandiri. Autentikasinya sendiri dan tidak
- * memakai login backoffice, namun tetap memakai function sync_database() yang
- * sudah ada di model, jadi logika sinkronisasi tidak diduplikasi.
+ * File ini adalah pintu masuk mandiri. Tidak memakai login backoffice dan
+ * tidak meminta ID maupun password. Pembatasnya adalah asal jaringan:
+ * sinkronisasi hanya berjalan bila request datang dari jaringan internal.
+ * Tetap memakai function sync_database() yang sudah ada di model, jadi
+ * logika sinkronisasi tidak diduplikasi.
  *
  * Alur:
- *   buka sync-database.php -> form ID + Password
- *   POST kredensial        -> divalidasi -> Ipaksurvey_model::sync_database()
+ *   buka sync-database.php -> dari jaringan internal, tombol Sync Database
+ *   POST                   -> divalidasi CSRF -> Ipaksurvey_model::sync_database()
  *   tampilkan hasil        -> tabel, field baru, field lama, error/warning
  *
  * Keamanan:
- *   - hanya POST yang menjalankan sinkronisasi, GET hanya menampilkan form;
- *   - kredensial dibaca dari application/config/<ENVIRONMENT>/ipak.php,
- *     tidak ada password di dalam source dan tidak ikut ter-commit;
- *   - perbandingan memakai hash_equals agar tahan tebak-tebakan waktu;
- *   - kunci sementara setelah beberapa kali gagal;
- *   - token CSRF untuk setiap POST;
- *   - daftar IP boleh dibatasi lewat ipak_maintenance_allowed_ips.
+ *   - hanya POST yang menjalankan sinkronisasi, GET hanya menampilkan tombol;
+ *   - hanya REMOTE_ADDR jaringan internal yang diizinkan. Alamat IP privat
+ *     tidak dapat diusulkan dari internet publik, jadi ini batas yang nyata;
+ *   - token CSRF tetap diwajibkan untuk setiap POST, supaya halaman web lain
+ *     tidak bisa memicu sinkronisasi lewat browser milik orang lain yang
+ *     kebetulan berada di jaringan internal;
+ *   - daftar IP khusus yang diblokir diatur lewat ipak_maintenance_blocked_ips.
+ *
+ * PERINGATAN: sync_database() menjalankan DDL terhadap database, yaitu
+ * CREATE TABLE, ALTER TABLE, dan ADD COLUMN. Jangan pasang endpoint ini di
+ * server yang bisa dijangkau publik tanpa pembatas jaringan lain.
  *
  * @see application/controllers/Maintenance.php
+ * @see application/config/ipak.php
  * @see Ipaksurvey_model::sync_database()
  */
 
