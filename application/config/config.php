@@ -39,7 +39,21 @@ date_default_timezone_set('Asia/Jakarta');
 | tertinggal dari deployment lama membuat seluruh site_url() mengarah ke URL
 | yang sudah tidak ada, dan form login akan terkirim ke alamat mati.
 */
-$config['base_url'] = 'https://dpmptsp.jabarprov.go.id/ipak_skm/';
+// var_dump($_SERVER['HTTPS']);die();
+if(empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
+    $scheme = 'http://';
+} else {
+    $scheme = 'https://';
+}
+
+$script_name = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
+$script_dir  = dirname($script_name);
+$script_dir  = ($script_dir === DIRECTORY_SEPARATOR || $script_dir === '/' || $script_dir === '\\')
+    ? ''
+    : rtrim($script_dir, '/\\') . '/';
+
+$config['base_url'] = $scheme . $_SERVER['HTTP_HOST'] . '/' . $script_dir;
+// $config['base_url'] = 'https://' . $_SERVER['HTTP_HOST'] . '/ipak_skm/';
 
 /*
 | Berkas .env tidak lagi dipakai. Aturan blokirnya di .htaccess tetap
