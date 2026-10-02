@@ -408,74 +408,40 @@ class Admin extends CI_Controller
         $filters = $this->filters();
         $bundle = $this->ipak->get_response_export_bundle($filters);
 
-        $education = $this->config->item('ipak_education');
-        $jobs = $this->config->item('ipak_jobs');
-        $services = $this->ipak->sector_options();
-        $unitNames = $this->ipak->unit_options();
+        $lookups = array(
+            'education' => $this->config->item('ipak_education'),
+            'jobs' => $this->config->item('ipak_jobs'),
+            'services' => $this->ipak->sector_options(),
+            'unit_names' => $this->ipak->unit_options(),
+        );
+        $options = array('include_scores' => (bool) $this->input->get('skor'));
 
-        // Layanan yang ditampilkan selalu milik baris tersebut, bukan master.
-        $detailRows = [];
-        $summaryRows = [];
-        $number = 0;
+        // Builder butuh model dan master label, jadi dipakai langsung lewat
+        // include. Loader CI hanya bisa instantiate kelas tanpa argumen.
+        require_once APPPATH . 'libraries/Response_matrix_builder.php';
+        $builder = new Response_matrix_builder($this->ipak, $bundle, $lookups, $options);
 
-        foreach ($bundle as $entry) {
-            $row = $entry['response'];
-            $meta = $this->ipak->decode_metadata($row['keterangan']);
-            $service = $this->response_service_label($row, $meta, $services);
-            $identity = $this->response_identity_label($row, $meta, $education, $jobs, $unitNames);
-            $surveyDate = !empty($row['tgl_buat']) ? $row['tgl_buat'] : $row['tgl_pengisian'];
-            $responseRef = trim(
-                (string) $row['resi'] !== ''
-                    ? $row['resi']
-                    : (string) $row['kode']
-            );
+        $layout = $builder->headers();
+        $headers = $layout['headers'];
+        $rows = $builder->rows();
 
-            $summaryRows[] = [
-                $responseRef,
-                $surveyDate,
-                $identity,
-                $service,
-                $entry['survey_name'],
-                (string) $entry['survey_code'],
-                (string) $entry['form_name'],
-                number_format((float) $entry['score'], 2, '.', ''),
-                (string) $entry['category_label'],
-                count($entry['items']),
-            ];
-
-            foreach ($entry['items'] as $item) {
-                $number++;
-                $detailRows[] = [
-                    $number,
-                    $responseRef,
-                    $surveyDate,
-                    $identity,
-                    $service,
-                    $entry['survey_name'],
-                    trim((string) $item['question_code'] . ' - ' . $item['question_text']),
-                    (string) $item['option_label'],
-                    (string) $item['option_code'],
-                    number_format((float) $item['option_value'], 2, '.', ''),
-                ];
-            }
+        // Satu nomor referensi = satu baris, jadi pemotongan baris tidak lagi
+        // diperlukan seperti pada format panjang.
+        $maxRows = 65000;
+        $truncated = false;
+        if (count($rows) > $maxRows) {
+            $rows = array_slice($rows, 0, $maxRows);
+            $truncated = true;
         }
 
         $filterNotes = $this->excel_filter_notes($filters);
         $generatedAt = date('d-m-Y H:i:s');
-
-        // Excel hanya menerima 65.536 baris per sheet, sedangkan format panjang
-        // mengalikan jumlah responden dengan jumlah pertanyaan. Bila lewat
-        // batas, baris dipotong dan batasnya dicatat terbuka supaya data tidak
-        // hilang diam-diam. Gunakan filter tanggal yang lebih sempit.
-        $maxRows = 65000;
-        if (count($detailRows) > $maxRows) {
-            $detailRows = array_slice($detailRows, 0, $maxRows);
-            $filterNotes[] = [
+        if ($truncated) {
+            $filterNotes[] = array(
                 'Kriteria' => 'Peringatan',
-                'Nilai' => 'Baris dipotong pada ' . $maxRows . ' baris. Format panjang '
-                    . 'mengalikan responden dengan pertanyaan, sehingga melewati batas 65.536 baris '
-                    . 'per sheet Excel. Persempit rentang tanggal untuk 나머anya.',
-            ];
+                'Nilai' => 'Baris dipotong pada ' . $maxRows . ' baris. '
+                    . 'Excel membatasi jumlah baris per sheet. Persempit rentang tanggal untuk sisanya.',
+            );
         }
 
         $this->load->library('Excel_writer');
@@ -483,42 +449,286 @@ class Admin extends CI_Controller
 
         $excel->add_sheet(
             'Data Responden',
-            ['No', 'Referensi', 'Tanggal Survey', 'Identitas Responden', 'Layanan', 'Survei', 'Pertanyaan', 'Jawaban', 'Kode Opsi', 'Nilai Opsi'],
-            $detailRows,
-            [
-                'title' => 'Data Responden - ' . $generatedAt,
-                'widths' => [50, 120, 110, 300, 200, 180, 420, 300, 80, 90],
+            $headers,
+            $rows,
+            array(
+                'title' => 'Data Responden per Nomor Referensi - ' . $generatedAt,
+                'notes' => array(
+                    'Satu baris = satu Nomor Referensi. Satu kolom = satu kode pertanyaan. '
+                        . 'Kolom nilai hanya tampil bila export diminta memakai parameter skor.',
+                ),
+                'widths' => $builder->widths($headers, $rows),
+                'text_columns' => $builder->text_columns(),
                 'freeze' => true,
-            ]
+                'autofilter' => true,
+            )
         );
 
         $excel->add_sheet(
-            'Ringkasan Responden',
-            ['Referensi', 'Tanggal Survey', 'Identitas Responden', 'Layanan', 'Survei', 'Kode Survei', 'Form', 'Nilai', 'Kategori', 'Jumlah Jawaban'],
-            $summaryRows,
-            [
-                'title' => 'Ringkasan per responden/survei - ' . $generatedAt,
-                'widths' => [120, 110, 300, 200, 180, 120, 180, 90, 130, 120],
+            'Screening Data',
+            array('Aspek', 'Nilai'),
+            $this->screening_rows($builder),
+            array(
+                'title' => 'Screening struktur data sebelum export',
+                'widths' => array(300, 460),
                 'freeze' => true,
-            ]
+            )
         );
 
+        $validationRows = $this->validation_rows($builder);
+        $validationRows[] = array('', '');
+        $validationRows[] = array('FILTER AKTIF SAAT EXPORT DIBUAT', '');
+        foreach ($filterNotes as $note) {
+            $validationRows[] = array($note['Kriteria'], $note['Nilai']);
+        }
+
         $excel->add_sheet(
-            'Filter Export',
-            ['Kriteria', 'Nilai'],
-            array_merge(
-                [['Kriteria' => 'Waktu dibuat', 'Nilai' => $generatedAt]],
-                [['Kriteria' => 'Jumlah baris data', 'Nilai' => count($detailRows)]],
-                [['Kriteria' => 'Jumlah responden', 'Nilai' => count($summaryRows)]],
-                $filterNotes
-            ),
-            [
-                'title' => 'Filter aktif pada saat export dibuat',
-                'widths' => [260, 320],
-            ]
+            'Validasi Export',
+            array('Pemeriksaan', 'Hasil'),
+            $validationRows,
+            array(
+                'title' => 'Validasi hasil export - ' . $generatedAt,
+                'widths' => array(300, 460),
+                'freeze' => true,
+            )
         );
 
         $excel->download('data-responden-' . date('Ymd-His') . '.xls');
+    }
+
+    /**
+     * Laporan screening struktur data dalam bentuk tabel.
+     *
+     * @param  Response_matrix_builder $builder
+     * @return array
+     */
+    private function screening_rows(Response_matrix_builder $builder)
+    {
+        $screen = $builder->screen();
+        $rows = array();
+
+        $add = function ($label, $value) use (&$rows) {
+            $rows[] = array($label, (string) $value);
+        };
+
+        $add('Baris bundle dari sumber', $screen['bundle_rows']);
+        $add('Item jawaban dari sumber', $screen['answer_items']);
+        $add('Kolom pada baris respons mentah', count($screen['raw_fields']));
+        $add('Label identitas ditemukan', count($screen['identity_labels']));
+        $add('Kolom pertanyaan dihasilkan', count($screen['question_codes']));
+        $add('Kolom tanggal dipakai', $screen['date_label']);
+        $add('Total kolom di sheet utama', count($screen['headers']));
+
+        $rows[] = array('', '');
+        $rows[] = array('FIELD PADA BARIS RESPONS MENTAH', 'jumlah baris terisi');
+        foreach ($screen['raw_fields'] as $field => $filled) {
+            $empty = isset($screen['empty_fields'][$field]) ? $screen['empty_fields'][$field] : 0;
+            $rows[] = array($field, 'terisi ' . $filled . ', kosong ' . $empty);
+        }
+
+        $rows[] = array('', '');
+        $rows[] = array('LABEL IDENTITAS HASIL PECAHAN', 'sifat kolom');
+        foreach ($screen['identity_labels'] as $label) {
+            $kind = isset($screen['header_kinds'][$label]) ? $screen['header_kinds'][$label] : '-';
+            $rows[] = array($label, $kind);
+        }
+
+        $rows[] = array('', '');
+        $rows[] = array('NILAI KATEGORI YANG DITEMUKAN', 'jumlah kemunculan');
+        foreach ($screen['category_values'] as $value => $count) {
+            $rows[] = array($value, $count);
+        }
+
+        $rows[] = array('', '');
+        $rows[] = array('KODE SURVEI', 'jumlah kemunculan');
+        foreach ($screen['survey_codes'] as $code => $count) {
+            $rows[] = array($code, $count);
+        }
+
+        $rows[] = array('', '');
+        $rows[] = array('KODE PERTANYAAN -> KOLOM', 'pertanyaan');
+        foreach ($screen['question_codes'] as $question) {
+            $rows[] = array(
+                $question['column'],
+                $question['text'] . '  [survei: ' . $question['survey'] . ']'
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Hasil validasi transformasi dalam bentuk tabel.
+     *
+     * @param  Response_matrix_builder $builder
+     * @return array
+     */
+    private function validation_rows(Response_matrix_builder $builder)
+    {
+        $check = $builder->validation();
+        $yes = function ($value) {
+            return $value ? 'YA' : 'TIDAK';
+        };
+
+        $rows = array(
+            array('Nomor referensi unik pada data mentah', $check['unique_references_raw']),
+            array('Jumlah baris hasil export', $check['rows_produced']),
+            array('Satu baris per nomor referensi', $yes($check['one_row_per_reference'])),
+            array(
+                'Nomor referensi hilang',
+                $check['missing_references'] ? implode(', ', $check['missing_references']) : 'tidak ada'
+            ),
+            array(
+                'Nomor referensi tak terduga',
+                $check['unexpected_references'] ? implode(', ', $check['unexpected_references']) : 'tidak ada'
+            ),
+            array('Item jawaban pada data mentah', $check['answer_items_raw']),
+            array('Pasangan referensi + pertanyaan yang harus terisi', $check['answer_cells_expected']),
+            array('Sel jawaban yang terisi di Excel', $check['answer_cells_filled']),
+            array('Tidak ada jawaban yang hilang', $yes($check['no_answer_lost'])),
+            array('Jumlah kolom di sheet utama', $check['column_count']),
+            array('Kolom pertanyaan', $check['question_columns']),
+            array(
+                'Kode pertanyaan yang butuh nama kolom tambahan',
+                $check['duplicate_question_columns']
+                    ? implode(', ', $check['duplicate_question_columns'])
+                    : 'tidak ada'
+            ),
+            array('Duplikat dengan jawaban identik (dipipihkan)', $check['duplicate_identical']),
+            array('Duplikat berbeda jawaban, dipakai yang terbaru', $check['duplicate_newest_wins']),
+            array('Konflik tanpa waktu pembeda, dicatat sebagai konflik', $check['duplicate_unresolved']),
+            array('Field profil dengan nilai berbeda (digabung)', $check['profile_multi_value']),
+            array('Referensi kosong diberi penanda', $check['empty_reference']),
+        );
+
+        if ($check['audit']) {
+            $rows[] = array('', '');
+            $rows[] = array('RINCIAN DUPLIKAT DAN KONFLIK', '');
+            foreach ($check['audit'] as $line) {
+                $rows[] = array('', $line);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Export Markdown: satu baris per Nomor Referensi.
+     *
+     * Profil responden ditulis sekali di baris pertamanya, lalu setiap soal
+     * menjadi sepasang kolom Pertanyaan/Nilai. Kolom Nilai memakai skor
+     * ternormalisasi 25-100, bukan nilai mentah opsi.
+     *
+     * @return void
+     */
+    public function export_markdown()
+    {
+        $this->require_login();
+        $filters = $this->filters();
+        $bundle = $this->ipak->get_response_export_bundle($filters);
+
+        $education = $this->config->item('ipak_education');
+        $jobs = $this->config->item('ipak_jobs');
+        $services = $this->ipak->sector_options();
+        $unitNames = $this->ipak->unit_options();
+
+        $rows = [];
+        $answerCount = 0;
+
+        // Nomor resi lintas sumber bisa sama-sama terisi, jadi simpan
+        //(response_key) yang sudah memakai sebuah nomor agar tidak tertukar.
+        $refOwner = array();
+
+        foreach ($bundle as $entry) {
+            $row = $entry['response'];
+            $meta = $this->ipak->decode_metadata($row['keterangan']);
+
+            $responseRef = trim(
+                (string) $row['resi'] !== ''
+                    ? (string) $row['resi']
+                    : (string) $row['kode']
+            );
+            $owner = isset($row['response_key']) ? (string) $row['response_key'] : $responseRef;
+            if (isset($refOwner[$responseRef]) && $refOwner[$responseRef] !== $owner) {
+                $responseRef = $responseRef . ' (' . $owner . ')';
+            }
+            $refOwner[$responseRef] = $owner;
+
+            $identity = [
+                'Tanggal Survey' => !empty($row['tgl_buat']) ? $row['tgl_buat'] : $row['tgl_pengisian'],
+                'Layanan' => $this->response_service_label($row, $meta, $services),
+                'Identitas Responden' => $this->response_identity_label($row, $meta, $education, $jobs, $unitNames),
+            ];
+
+            foreach ($entry['items'] as $item) {
+                $answerCount++;
+                $rows[] = $identity + [
+                    'ref' => $responseRef,
+                    'survey_name' => $entry['survey_name'],
+                    'question_code' => $item['question_code'],
+                    'question_text' => $item['question_text'],
+                    'option_label' => $item['option_label'],
+                    'skor' => $item['score'],
+                ];
+            }
+        }
+
+        $this->load->library('Markdown_grouped_writer');
+        $writer = new Markdown_grouped_writer();
+        $writer->set_reference_label('Nomor Referensi');
+        $writer->set_identity_fields([
+            'Tanggal Survey' => 'Tanggal Survey',
+            'Layanan' => 'Layanan',
+            'Identitas Responden' => 'Identitas Responden',
+        ]);
+        $writer->set_numeric_columns(['Nilai']);
+        $writer->set_empty_value('-');
+        $writer->set_number_decimals(null);
+
+        $markdown = $writer->render_wide($rows, 'ref', [
+            'question_key' => array('survey_name', 'question_code'),
+            'question_label' => 'question_text',
+            'answer_key' => 'option_label',
+            'score_key' => 'skor',
+            'score_header' => 'Nilai',
+        ]);
+
+        $notes = $this->excel_filter_notes($filters);
+        $footer = array();
+        $footer[] = '| Kriteria | Nilai |';
+        $footer[] = '| --- | --- |';
+        $footer[] = '| Waktu dibuat | ' . date('d-m-Y H:i:s') . ' |';
+        $footer[] = '| Jumlah Nomor Referensi | ' . count(array_unique(array_column($rows, 'ref'))) . ' |';
+        $footer[] = '| Jumlah jawaban | ' . $answerCount . ' |';
+        foreach ($notes as $note) {
+            $footer[] = '| ' . $this->markdown_cell($note['Kriteria']) . ' | '
+                . $this->markdown_cell($note['Nilai']) . ' |';
+        }
+
+        $document = $markdown . "\n\n## Filter Export\n\n" . implode("\n", $footer) . "\n";
+
+        $filename = 'data-responden-' . date('Ymd-His') . '.md';
+        if (!headers_sent()) {
+            header('Content-Type: text/markdown; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Pragma: no-cache');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Expires: 0');
+        }
+        echo $document;
+        exit;
+    }
+
+    /**
+     * Mengescape satu sel Markdown agar pipe dan baris baru tidak merusak tabel.
+     *
+     * @param  mixed $value
+     * @return string
+     */
+    private function markdown_cell($value)
+    {
+        $value = str_replace(["\r\n", "\r", "\n"], ' ', (string) $value);
+        return str_replace('|', '\\|', $value);
     }
 
     /**

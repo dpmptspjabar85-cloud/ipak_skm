@@ -29,7 +29,11 @@ class Excel_writer
      * @param array  $options widths  (array lebar kolom),
      *                        freeze  (bool kunci baris judul),
      *                        title   (string judul di atas tabel),
-     *                        notes   (array catatan di bawah judul kolom).
+     *                        notes   (array catatan di bawah judul kolom),
+     *                        autofilter (bool pasang filter otomatis),
+     *                        text_columns (array indeks kolom yang wajib ditulis
+     *                        sebagai teks, mis. nomor identitas 16 digit yang
+     *                        akan rusak bila dibaca sebagai angka).
      * @return void
      */
     public function add_sheet($name, array $headers, array $rows, array $options = [])
@@ -42,6 +46,10 @@ class Excel_writer
             'freeze' => !empty($options['freeze']),
             'title' => isset($options['title']) ? (string) $options['title'] : '',
             'notes' => isset($options['notes']) && is_array($options['notes']) ? $options['notes'] : [],
+            'autofilter' => !empty($options['autofilter']),
+            'text_columns' => isset($options['text_columns']) && is_array($options['text_columns'])
+                ? array_flip($options['text_columns'])
+                : array(),
         ];
         $this->currentIndex = count($this->sheets) - 1;
     }
@@ -156,6 +164,15 @@ class Excel_writer
             . '<Protection/>'
             . '</Style>' . "\n";
 
+        $xml .= "\t\t" . '<Style ss:ID="sInt">'
+            . '<Alignment ss:Horizontal="Right" ss:Vertical="Top"/>'
+            . $border
+            . '<Font ss:FontName="Calibri" ss:Size="11"/>'
+            . '<Interior/>'
+            . '<NumberFormat ss:Format="0"/>'
+            . '<Protection/>'
+            . '</Style>' . "\n";
+
         $xml .= "\t\t" . '<Style ss:ID="sNumber">'
             . '<Alignment ss:Horizontal="Right" ss:Vertical="Top"/>'
             . $border
@@ -211,6 +228,7 @@ class Excel_writer
         }
 
         $rowIndex = 1;
+        $textColumns = $sheet['text_columns'];
 
         if ($sheet['title'] !== '') {
             $xml .= "\t\t\t" . '<Row ss:Index="' . $rowIndex . '">' . "\n";
@@ -238,7 +256,7 @@ class Excel_writer
             for ($column = 0; $column < $columnCount; $column++) {
                 $value = array_key_exists($column, $row) ? $row[$column] : '';
                 $style = $this->row_style($value);
-                $xml .= "\t\t\t\t" . $this->cell($value, $column + 1, $style) . "\n";
+                $xml .= "\t\t\t\t" . $this->cell($value, $column + 1, $style, $textColumns) . "\n";
             }
             $xml .= "\t\t\t" . '</Row>' . "\n";
             $rowIndex++;
@@ -252,6 +270,18 @@ class Excel_writer
         }
 
         $xml .= "\t\t" . '</Table>' . "\n";
+
+        // AutoFilter ditulis setelah </Table> dan sebelum WorksheetOptions.
+        // Rentang memakai notasi R1C1 dan harus menutup tepat di baris judul
+        // kolom serta baris data terakhir.
+        if (!empty($sheet['autofilter'])) {
+            $lastRow = $headerRowIndex + count($sheet['rows']);
+            $xml .= "\t\t" . '<AutoFilter'
+                . ' x:Range="R' . $headerRowIndex . 'C1:R' . max($lastRow, $headerRowIndex) . 'C' . $columnCount . '"'
+                . ' xmlns="urn:schemas-microsoft-com:office:excel"' . "\n"
+                . "\t\t" . '/>' . "\n";
+        }
+
         if ($sheet['freeze']) {
             // Baris yang dibekukan persis jumlah baris di atas judul kolom.
             // Nilai sebelumnya menambah offset judul lagi sehingga jumlah baris
@@ -285,13 +315,20 @@ class Excel_writer
             $width = isset($widths[$index]) ? (int) $widths[$index] : 0;
             $xml .= "\t\t\t" . '<Column ss:Index="' . $column . '"'
                 . ($width > 0 ? ' ss:Width="' . $width . '"' : '')
-                . ' ss:AutoFitWidth="0" ss:WrapText="0"/>' . "\n";
+                // ss:WrapText sengaja tidak ditulis pada <Column>. Excel
+                // menolak berkas sebagai rusak kalau atribut ini ditulis
+                // eksplisit, meskipun XML-nya valid. Pembungkuan teks
+                // diatur lewat gaya sel sHeader/sText.
+                . ' ss:AutoFitWidth="0"/>' . "\n";
         }
         return $xml;
     }
 
     /**
      * Menentukan gaya sel berdasarkan tipe nilai.
+     *
+     * Bilangan bulat memakai format "0" supaya kolom nomor urut tidak
+     * tampil sebagai "1,00". Angka pecahan memakai "0,00".
      *
      * @param  mixed $value
      * @return string
@@ -301,10 +338,19 @@ class Excel_writer
         if ($value === '' || $value === null) {
             return 'text';
         }
-        if (is_int($value) || is_float($value)) {
-            return 'number';
+        if (is_int($value)) {
+            return 'int';
         }
-        return is_numeric($value) ? 'number' : 'text';
+        if (is_float($value)) {
+            return floor($value) == $value ? 'int' : 'number';
+        }
+        if (is_bool($value)) {
+            return 'text';
+        }
+        if (!is_numeric($value)) {
+            return 'text';
+        }
+        return floor((float) $value) == (float) $value ? 'int' : 'number';
     }
 
     /**
@@ -313,9 +359,10 @@ class Excel_writer
      * @param  mixed  $value
      * @param  int    $column
      * @param  string $style
+     * @param  array  $textColumns Indeks kolom (berbasis 0) yang wajib jadi teks.
      * @return string
      */
-    private function cell($value, $column, $style = 'text')
+    private function cell($value, $column, $style = 'text', array $textColumns = array())
     {
         $index = (int) $column;
         $open = ' ss:StyleID="s' . ucfirst($style) . '"';
@@ -323,10 +370,11 @@ class Excel_writer
         if ($value === null || $value === '') {
             return '<Cell' . $open . ' ss:Index="' . $index . '"/>';
         }
+        $forceText = isset($textColumns[$index - 1]);
         if (is_bool($value)) {
             $value = $value ? 'Ya' : 'Tidak';
         }
-        if (is_int($value) || is_float($value)) {
+        if (!$forceText && (is_int($value) || is_float($value))) {
             return '<Cell' . $open . ' ss:Index="' . $index . '">'
                 . '<Data ss:Type="Number">' . $this->escape($value) . '</Data></Cell>';
         }
@@ -337,7 +385,10 @@ class Excel_writer
         if (preg_match('/^[=+\-@]/', $text)) {
             $text = "'" . $text;
         }
-        $type = is_numeric($text) ? 'Number' : 'String';
+        // Kolom yang dipaksa teks tetap ditulis sebagai teks meskipun isinya
+        // angka, karena nomor identitas 16 digit akan kehilangan digit terakhir
+        // bila dibaca Excel sebagai number.
+        $type = !$forceText && is_numeric($text) ? 'Number' : 'String';
         return '<Cell' . $open . ' ss:Index="' . $index . '">'
             . '<Data ss:Type="' . $type . '">' . $this->escape($text) . '</Data></Cell>';
     }

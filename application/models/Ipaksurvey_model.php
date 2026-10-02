@@ -3731,13 +3731,25 @@ class Ipaksurvey_model extends CI_Model
             ->select(
                 'r.survey_id,r.flex_response_id,r.skm_data_id,ra.question_id,'
                 . 'ra.option_label_snapshot,ra.option_code_snapshot,ra.option_value_snapshot,'
-                . 'ra.normalized_score_snapshot,q.question_code,q.question_text,q.sort_order',
+                // Kolom skor punya dua generasi. normalized_snapshot terisi 0
+                // pada seluruh baris live, jadi skor diambil dari kolom aktif
+                // lalu master opsi, dan baru dipakai apa adanya bila semuanya 0.
+                . 'COALESCE(NULLIF(ra.normalized_score,0),NULLIF(ra.normalized_score_snapshot,0),'
+                . 'NULLIF(oa_by_id.normalized_score,0),NULLIF(oa_by_label.normalized_score,0),0) AS normalized_score,'
+                . 'q.question_code,q.question_text,q.sort_order',
                 false
             )
             ->from('ipak_submission_survey_answers rsa')
             ->join('ipak_submission_surveys r', 'r.id = rsa.survey_result_id', 'inner')
             ->join('ipak_response_answers ra', 'ra.id = rsa.response_answer_id', 'inner')
-            ->join('ipak_questions q', 'q.id = ra.question_id', 'inner');
+            ->join('ipak_questions q', 'q.id = ra.question_id', 'inner')
+            ->join('ipak_answer_options oa_by_id', 'oa_by_id.id = ra.answer_option_id', 'left')
+            ->join(
+                'ipak_answer_options oa_by_label',
+                'oa_by_label.question_id = ra.question_id'
+                . ' AND oa_by_label.option_label = ra.option_label_snapshot',
+                'left'
+            );
         $this->db->group_start();
         if ($flexIds) {
             $this->db->where_in('r.flex_response_id', $flexIds);
@@ -3768,7 +3780,7 @@ class Ipaksurvey_model extends CI_Model
                 'option_label' => $row['option_label_snapshot'],
                 'option_code' => $row['option_code_snapshot'],
                 'option_value' => $row['option_value_snapshot'],
-                'normalized_score' => $row['normalized_score_snapshot'],
+                'normalized_score' => $row['normalized_score'],
             ];
         }
         return $result;
@@ -3815,11 +3827,23 @@ class Ipaksurvey_model extends CI_Model
         $answerRows = $this->db
             ->select(
                 'ra.skm_data_id,ra.question_id,ra.option_label_snapshot,ra.option_code_snapshot,'
-                . 'ra.option_value_snapshot,ra.normalized_score_snapshot,q.question_code,q.question_text',
+                . 'ra.option_value_snapshot,'
+                // Sama seperti jalur utama: kolom skor aktif dulu, lalu master
+                // opsi, baru nilai tersimpan apa adanya.
+                . 'COALESCE(NULLIF(ra.normalized_score,0),NULLIF(ra.normalized_score_snapshot,0),'
+                . 'NULLIF(oa_by_id.normalized_score,0),NULLIF(oa_by_label.normalized_score,0),0) AS normalized_score,'
+                . 'q.question_code,q.question_text',
                 false
             )
             ->from('ipak_response_answers ra')
             ->join('ipak_questions q', 'q.id = ra.question_id', 'inner')
+            ->join('ipak_answer_options oa_by_id', 'oa_by_id.id = ra.answer_option_id', 'left')
+            ->join(
+                'ipak_answer_options oa_by_label',
+                'oa_by_label.question_id = ra.question_id'
+                . ' AND oa_by_label.option_label = ra.option_label_snapshot',
+                'left'
+            )
             ->where_in('ra.skm_data_id', $skmIds)
             ->order_by('q.sort_order', 'ASC')
             ->order_by('ra.id', 'ASC')
@@ -3852,7 +3876,7 @@ class Ipaksurvey_model extends CI_Model
                     'option_label' => $answer['option_label_snapshot'],
                     'option_code' => $answer['option_code_snapshot'],
                     'option_value' => $answer['option_value_snapshot'],
-                    'normalized_score' => $answer['normalized_score_snapshot'],
+                    'normalized_score' => $answer['normalized_score'],
                 ];
             }
         }
