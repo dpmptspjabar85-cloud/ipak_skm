@@ -1,7 +1,11 @@
 -- Upgrade safety (MySQL 5.6 compatible): tabel mungkin sudah ada dari versi lama.
--- Tambah kolom created_at/updated_at hanya jika belum ada.
+-- Tambah kolom created_at/updated_at hanya jika belum ada. Jika ada tapi dengan default lama, ganti.
 SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_questions' AND COLUMN_NAME = 'created_at');
-SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_questions ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER is_active, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', 'SELECT "ipak_questions already has created_at/updated_at"');
+SET @has_col := IF(@col IS NOT NULL, 1, 0);
+SET @col_default := (SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_questions' AND COLUMN_NAME = 'created_at');
+SET @col_extra := (SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_questions' AND COLUMN_NAME = 'created_at');
+SET @needs_fix := IF(@has_col = 1 AND (@col_default != 'CURRENT_TIMESTAMP' OR @col_extra NOT LIKE '%on update%'), 1, 0);
+SET @sql := IF(@has_col = 0, 'ALTER TABLE ipak_questions ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER is_active, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', IF(@needs_fix = 1, 'ALTER TABLE ipak_questions MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP', 'SELECT "ipak_questions already has correct created_at/updated_at"'));
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -23,8 +27,13 @@ CREATE TABLE IF NOT EXISTS ipak_questions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 -- Upgrade safety (MySQL 5.6 compatible):
+-- Tambah kolom created_at/updated_at hanya jika belum ada. Jika ada tapi dengan default lama, ganti.
 SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_answer_options' AND COLUMN_NAME = 'created_at');
-SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_answer_options ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER is_active, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', 'SELECT "ipak_answer_options already has created_at/updated_at"');
+SET @has_col := IF(@col IS NOT NULL, 1, 0);
+SET @col_default := (SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_answer_options' AND COLUMN_NAME = 'created_at');
+SET @col_extra := (SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_answer_options' AND COLUMN_NAME = 'created_at');
+SET @needs_fix := IF(@has_col = 1 AND (@col_default != 'CURRENT_TIMESTAMP' OR @col_extra NOT LIKE '%on update%'), 1, 0);
+SET @sql := IF(@has_col = 0, 'ALTER TABLE ipak_answer_options ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER is_active, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', IF(@needs_fix = 1, 'ALTER TABLE ipak_answer_options MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP', 'SELECT "ipak_answer_options already has correct created_at/updated_at"'));
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -50,7 +59,10 @@ CREATE TABLE IF NOT EXISTS ipak_answer_options (
 
 -- Upgrade safety (MySQL 5.6 compatible):
 SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_response_answers' AND COLUMN_NAME = 'created_at');
-SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_response_answers ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER category_snapshot', 'SELECT "ipak_response_answers already has created_at"');
+SET @has_col := IF(@col IS NOT NULL, 1, 0);
+SET @col_default := (SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_response_answers' AND COLUMN_NAME = 'created_at');
+SET @needs_fix := IF(@has_col = 1 AND @col_default != 'CURRENT_TIMESTAMP', 1, 0);
+SET @sql := IF(@has_col = 0, 'ALTER TABLE ipak_response_answers ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER category_snapshot', IF(@needs_fix = 1, 'ALTER TABLE ipak_response_answers MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP', 'SELECT "ipak_response_answers already has correct created_at"'));
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -86,7 +98,10 @@ CREATE TABLE IF NOT EXISTS ipak_response_answers (
 
 -- Upgrade safety (MySQL 5.6 compatible):
 SET @col := (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_admin_roles' AND COLUMN_NAME = 'created_at');
-SET @sql := IF(@col IS NULL, 'ALTER TABLE ipak_admin_roles ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER role_name, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', 'SELECT "ipak_admin_roles already has created_at/updated_at"');
+SET @has_col := IF(@col IS NOT NULL, 1, 0);
+SET @col_default := (SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ipak_admin_roles' AND COLUMN_NAME = 'created_at');
+SET @needs_fix := IF(@has_col = 1 AND @col_default != 'CURRENT_TIMESTAMP', 1, 0);
+SET @sql := IF(@has_col = 0, 'ALTER TABLE ipak_admin_roles ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER role_name, ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at', IF(@needs_fix = 1, 'ALTER TABLE ipak_admin_roles MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP', 'SELECT "ipak_admin_roles already has correct created_at/updated_at"'));
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
