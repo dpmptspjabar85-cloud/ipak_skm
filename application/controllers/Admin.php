@@ -2992,9 +2992,6 @@ class Admin extends CI_Controller
 
     public function sync_database()
     {
-        $this->require_login();
-        $this->require_superadmin();
-
         if (strtoupper($this->input->method()) === 'POST') {
             $results = $this->ipak->sync_database();
 
