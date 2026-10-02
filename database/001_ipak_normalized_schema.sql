@@ -29,7 +29,7 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
-CREATE TABLE IF NOT EXISTS ipak_answer_options (...
+CREATE TABLE IF NOT EXISTS ipak_answer_options (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     question_id INT UNSIGNED NOT NULL,
     option_code VARCHAR(20) NOT NULL,
