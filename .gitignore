@@ -1,7 +1,14 @@
 # Konfigurasi lokal/deployment
+# .env tidak lagi dipakai. Semua konfigurasi pindah ke application/config/.
+# Aturan di bawah tetap dipertahankan agar berkas .env tidak pernah ikut
+# ter-commit bila suatu saat ada yang memakainya lagi.
 .env
 .env.*
 !.env.example
+
+# Konfigurasi per-environment yang berisi kredensial server. CodeIgniter
+# menggabungkannya otomatis, dan isinya tidak boleh masuk repository.
+/application/config/production/
 
 # Session, cache, dan log CodeIgniter
 application/cache/*

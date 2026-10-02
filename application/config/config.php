@@ -26,45 +26,26 @@ date_default_timezone_set('Asia/Jakarta');
 |
 */
 /*
-| Deteksi URL termasuk subfolder deployment.
+| Base URL aplikasi.
 |
-| base_url disusun otomatis dari HTTP_HOST dan lokasi index.php, sehingga
-| aplikasi tetap benar saat foldernya dipindah, misalnya:
+| Cara bawaan CodeIgniter: nilai ditulis langsung di sini, bukan dibaca dari
+| .env maupun variabel lingkungan. Dengan begitu konfigurasi tidak bergantung
+| pada berkas tambahan yang berada di dalam document root.
 |
-|   /jelita/perizinan/ipak_skm/index.php  -> https://domain/jelita/perizinan/ipak_skm/
-|   /ipak_skm/index.php                   -> https://domain/ipak_skm/
+| WAJIB diakhiri garis miring. Untuk aplikasi yang dipasang di
+| /var/www/html/ipak_skm, nilainya seperti di bawah ini.
 |
-| Urutan disengaja: deteksi otomatis didahulukan. Nilai IPAK_BASE_URL yang
-| tertinggal dari deployment lama (misalnya masih menunjuk /jelita/perizinan)
-| akan membuat seluruh site_url() mengarah ke URL yang sudah tidak ada, dan
-| itu salah satu penyebab form login terkirim ke alamat mati.
-|
-| IPAK_BASE_URL hanya dipakai sebagai cadangan bila PHP tidak menerima
-| HTTP_HOST. Bila aplikasi benar-benar di belakang reverse proxy sehingga
-| host yang diterima PHP berbeda dari host publik, isi IPAK_BASE_URL dengan
-| URL publik yang BENAR dan hapus blok elseif di bawah agar nilai itu
-| didahulukan.
+| Bila aplikasi dipindah ke folder lain, cukup ubah baris ini. Nilai yang
+| tertinggal dari deployment lama membuat seluruh site_url() mengarah ke URL
+| yang sudah tidak ada, dan form login akan terkirim ke alamat mati.
 */
-$ipakConfiguredBaseUrl = getenv('IPAK_BASE_URL');
+$config['base_url'] = 'https://dpmptsp.jabarprov.go.id/ipak_skm/';
 
-if (isset($_SERVER['HTTP_HOST'])) {
-    $ipakForwardedProto = isset($_SERVER['HTTP_X_FORWARDED_PROTO'])
-        ? strtolower(trim(explode(',', $_SERVER['HTTP_X_FORWARDED_PROTO'])[0]))
-        : '';
-    $ipakIsHttps = (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
-        || $ipakForwardedProto === 'https'
-        || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443);
-    $ipakScheme = $ipakIsHttps ? 'https://' : 'http://';
-    $ipakScriptName = isset($_SERVER['SCRIPT_NAME']) ? str_replace('\\', '/', $_SERVER['SCRIPT_NAME']) : '/index.php';
-    $ipakBasePath = str_replace('\\', '/', dirname($ipakScriptName));
-    $ipakBasePath = ($ipakBasePath === '/' || $ipakBasePath === '.') ? '' : '/' . trim($ipakBasePath, '/');
-
-    $config['base_url'] = $ipakScheme . $_SERVER['HTTP_HOST'] . $ipakBasePath . '/';
-} elseif ($ipakConfiguredBaseUrl !== false && trim($ipakConfiguredBaseUrl) !== '') {
-    $config['base_url'] = rtrim(trim($ipakConfiguredBaseUrl), '/') . '/';
-} else {
-    $config['base_url'] = 'http://127.0.0.1/';
-}
+/*
+| Berkas .env tidak lagi dipakai. Aturan blokirnya di .htaccess tetap
+| dipertahankan sebagai pengaman, sehingga bila .env sempat terunggah lagi
+| isinya tetap tidak bisa diunduh lewat browser.
+*/
 
 /*
 |--------------------------------------------------------------------------

@@ -1,16 +1,25 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+/*
+| Konfigurasi database untuk ENVIRONMENT = development.
+|
+| CodeIgniter menggabungkan berkas ini di atas application/config/database.php
+| hanya ketika ENVIRONMENT di index.php bernilai 'development'. Nilai di sini
+| menggantikan nilai yang sama, jadi tidak perlu menulis ulang seluruh array.
+|
+| Kredensial lokal development. Jangan pernah berisi kredensial server.
+*/
 $active_group = 'default';
 $query_builder = true;
 
 $db['default'] = [
     'dsn' => '',
-    'hostname' => getenv('IPAK_DB_HOST') !== false ? getenv('IPAK_DB_HOST') : '127.0.0.1',
-    'username' => getenv('IPAK_DB_USER') !== false ? getenv('IPAK_DB_USER') : 'root',
-    'password' => getenv('IPAK_DB_PASSWORD') !== false ? getenv('IPAK_DB_PASSWORD') : '',
-    'database' => getenv('IPAK_DB_NAME') !== false ? getenv('IPAK_DB_NAME') : 'backoffice',
-    'port' => getenv('IPAK_DB_PORT') !== false ? getenv('IPAK_DB_PORT') : '3306',
+    'hostname' => '127.0.0.1',
+    'username' => 'root',
+    'password' => '',
+    'database' => 'backoffice',
+    'port' => '3306',
     'dbdriver' => 'mysqli',
     'dbprefix' => '',
     'pconnect' => false,

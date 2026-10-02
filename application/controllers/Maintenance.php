@@ -40,14 +40,15 @@ class Maintenance extends CI_Controller
         $ipAllowed = $this->ip_allowed();
 
         if (!$configured) {
-            $this->errors[] = 'Kredensial maintenance belum diisi di .env '
-                . '(IPAK_MAINT_ID dan IPAK_MAINT_PASSWORD). Endpoint dinonaktifkan '
-                . 'sampai keduanya tersedia.';
+            $this->errors[] = 'Kredensial maintenance belum diisi di '
+                . 'application/config/' . ENVIRONMENT . '/ipak.php '
+                . '(ipak_maintenance_id dan ipak_maintenance_password). '
+                . 'Endpoint dinonaktifkan sampai keduanya tersedia.';
         }
 
         if (!$ipAllowed) {
             $this->errors[] = 'Alamat IP ini tidak ada di daftar '
-                . 'IPAK_MAINT_ALLOWED_IPS, jadi endpoint dinonaktifkan.';
+                . 'ipak_maintenance_allowed_ips, jadi endpoint dinonaktifkan.';
         }
 
         $results = null;
@@ -101,7 +102,7 @@ class Maintenance extends CI_Controller
     }
 
     /**
-     * Pembatasan IP bila IPAK_MAINT_ALLOWED_IPS diisi.
+     * Pembatasan IP bila ipak_maintenance_allowed_ips diisi.
      *
      * @return bool
      */

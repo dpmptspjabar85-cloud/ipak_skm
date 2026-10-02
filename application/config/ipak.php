@@ -69,22 +69,25 @@ $config['ipak_score_categories'] = [
 /*
 | Kredensial endpoint maintenance sync-database.php
 |
-| Nilai diambil dari .env, tidak pernah ditulis langsung di sini. Bila .env
-| belum diisi, endpoint menolak berjalan dan menampilkan pesan konfigurasi,
-| bukan memakai kredensial bawaan apa pun.
+| Nilai TIDAK ditulis di sini. Berkas ini ikut ter-commit, sehingga
+| password di dalamnya berarti password ikut tersebar ke repository.
 |
-|   IPAK_MAINT_ID         = id maintenance
-|   IPAK_MAINT_PASSWORD   = password maintenance
-|   IPAK_MAINT_ALLOWED_IPS= daftar IP dipisah koma, kosong = semua IP
+| Letakkan kredensial di application/config/production/ipak.php, yang
+| CodeIgniter otomatis menggabungkannya pada ENVIRONMENT = production dan
+| tidak ikut ter-commit. Endpoint menolak berjalan bila ID atau Password
+| kosong, jadi tanpa berkas itu endpoint tidak akan aktif sama sekali.
+|
+|   $config['ipak_maintenance_id']          = '...';
+|   $config['ipak_maintenance_password']    = '...';
+|   $config['ipak_maintenance_allowed_ips'] = '...';
+|
+| Untuk development lokal, buat application/config/development/ipak.php
+| dengan isi serupa bila endpoint perlu diuji.
 */
-$config['ipak_maintenance_id'] = getenv('IPAK_MAINT_ID') !== false
-    ? getenv('IPAK_MAINT_ID')
-    : '';
-$config['ipak_maintenance_password'] = getenv('IPAK_MAINT_PASSWORD') !== false
-    ? getenv('IPAK_MAINT_PASSWORD')
-    : '';
-$config['ipak_maintenance_allowed_ips'] = getenv('IPAK_MAINT_ALLOWED_IPS') !== false
-    ? getenv('IPAK_MAINT_ALLOWED_IPS')
-    : '';
+$config['ipak_maintenance_id'] = '';
+$config['ipak_maintenance_password'] = '';
+$config['ipak_maintenance_allowed_ips'] = '';
+
+// Batas percobaan login gagal sebelum endpoint dikunci sementara.
 $config['ipak_maintenance_max_attempts'] = 5;
 $config['ipak_maintenance_lockout_minutes'] = 15;

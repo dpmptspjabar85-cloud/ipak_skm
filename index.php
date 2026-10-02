@@ -38,33 +38,6 @@
 
 /*
  *---------------------------------------------------------------
- * ENVIRONMENT VARIABLE LOADER
- *---------------------------------------------------------------
- *
- * Load .env file and set environment variables so that
- * getenv() calls in configuration work correctly.
- */
-$ipakEnvFile = __DIR__ . '/.env';
-if (is_readable($ipakEnvFile)) {
-    $envLines = file($ipakEnvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($envLines as $line) {
-        $line = trim($line);
-        if ($line === '' || $line[0] === '#') {
-            continue;
-        }
-            $parts = explode('=', $line, 2);
-            if (count($parts) === 2) {
-                $key = trim($parts[0]);
-                $val = trim($parts[1]);
-                putenv($key . '=' . $val);
-                $_ENV[$key] = $val;
-                $_SERVER[$key] = $val;
-        }
-    }
-}
-
-/*
- *---------------------------------------------------------------
  * APPLICATION ENVIRONMENT
  *---------------------------------------------------------------
  *
@@ -78,9 +51,19 @@ if (is_readable($ipakEnvFile)) {
  *     testing
  *     production
  *
+ * Nilai di bawah ini mengikuti cara kerja bawaan CodeIgniter: environment
+ * ditentukan langsung di berkas ini, bukan lewat .env atau variabel
+ * lingkungan. Konfigurasi tiap environment dibaca dari
+ * application/config/<ENVIRONMENT>/ sebagai pelengkap
+ * application/config/.
+ *
+ * WAJIB 'production' di server. Nilai 'development' menyalakan
+ * display_errors, dan warning yang tercetak sebelum redirect menyebabkan
+ * cookie session hilang sehingga login selalu kembali ke halaman login.
+ *
  * NOTE: If you change these, also change the error_reporting() code below
  */
-	define('ENVIRONMENT', getenv('CI_ENV') !== false ? getenv('CI_ENV') : (isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development'));
+	define('ENVIRONMENT', 'production');
 
 switch (ENVIRONMENT)
 {

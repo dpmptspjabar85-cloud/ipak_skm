@@ -80,15 +80,13 @@ $db['default'] = array(
 	'password' => '',
 	'database' => 'backoffice',
 	'port' => '3306',
-	// 'hostname' => getenv('IPAK_DB_HOST') !== false ? getenv('IPAK_DB_HOST') : '127.0.0.1',
-	// 'username' => getenv('IPAK_DB_USER') !== false ? getenv('IPAK_DB_USER') : 'root',
-	// 'password' => getenv('IPAK_DB_PASSWORD') !== false ? getenv('IPAK_DB_PASSWORD') : '',
-	// 'database' => getenv('IPAK_DB_NAME') !== false ? getenv('IPAK_DB_NAME') : 'backoffice',
-	// 'port' => getenv('IPAK_DB_PORT') !== false ? getenv('IPAK_DB_PORT') : '3306',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,
-	'db_debug' => (ENVIRONMENT !== 'development'),
+	// Hanya nyalakan di development. Di production error database ikut
+	// dicetak ke layar, yang membocorkan struktur database sekaligus
+	// mengirim output sebelum header sehingga cookie session hilang.
+	'db_debug' => (ENVIRONMENT === 'development'),
 	'cache_on' => FALSE,
 	'cachedir' => '',
 	'char_set' => 'utf8',
@@ -100,3 +98,16 @@ $db['default'] = array(
 	'failover' => array(),
 	'save_queries' => TRUE
 );
+
+/*
+| Berkas ini berisi kredensial database dan TIDAK boleh di-commit bersama
+| kredensial asli. Aturan pemakaiannya:
+|
+|   1. Jangan pernah mengisi password asli lalu ikut push ke repository.
+|   2. Untuk ENVIRONMENT lain, buat folder pelengkap, misalnya
+|      application/config/production/database.php, berisi $db['default'].
+|      CodeIgniter otomatis menggabungkannya dengan berkas ini.
+|
+| Pola application/config/production/ sudah ada di .gitignore supaya kredensial
+| server tidak ikut ter-commit.
+*/

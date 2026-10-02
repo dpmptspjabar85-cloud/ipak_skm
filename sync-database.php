@@ -13,11 +13,12 @@
  *
  * Keamanan:
  *   - hanya POST yang menjalankan sinkronisasi, GET hanya menampilkan form;
- *   - kredensial dibaca dari .env, tidak ada password di dalam source;
+ *   - kredensial dibaca dari application/config/<ENVIRONMENT>/ipak.php,
+ *     tidak ada password di dalam source dan tidak ikut ter-commit;
  *   - perbandingan memakai hash_equals agar tahan tebak-tebakan waktu;
  *   - kunci sementara setelah beberapa kali gagal;
  *   - token CSRF untuk setiap POST;
- *   - daftar IP boleh dibatasi lewat IPAK_MAINT_ALLOWED_IPS.
+ *   - daftar IP boleh dibatasi lewat ipak_maintenance_allowed_ips.
  *
  * @see application/controllers/Maintenance.php
  * @see Ipaksurvey_model::sync_database()
