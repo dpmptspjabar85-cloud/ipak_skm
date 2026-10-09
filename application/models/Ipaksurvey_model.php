@@ -4293,13 +4293,25 @@ class Ipaksurvey_model extends CI_Model
         $cols = array_merge($cols, $uniqueKeys, $indexKeys);
 
         $foreignKeys = [];
+
         foreach ($tableDef['foreign_keys'] as $fkName => $fkDef) {
-            $cols = implode('`, `', $fkDef['columns']);
+            $fkCols = implode('`, `', $fkDef['columns']);
             $refCols = implode('`, `', $fkDef['ref_columns']);
-            $onUpdate = !empty($fkDef['on_update']) ? " ON UPDATE {$fkDef['on_update']}" : '';
-            $onDelete = !empty($fkDef['on_delete']) ? " ON DELETE {$fkDef['on_delete']}" : '';
-            $foreignKeys[] = "CONSTRAINT `{$fkName}` FOREIGN KEY (`{$cols}`) REFERENCES `{$fkDef['ref_table']}` (`{$refCols}`){$onUpdate}{$onDelete}";
+
+            $onUpdate = !empty($fkDef['on_update'])
+                ? " ON UPDATE {$fkDef['on_update']}"
+                : '';
+
+            $onDelete = !empty($fkDef['on_delete'])
+                ? " ON DELETE {$fkDef['on_delete']}"
+                : '';
+
+            $foreignKeys[] = "CONSTRAINT `{$fkName}` "
+                . "FOREIGN KEY (`{$fkCols}`) "
+                . "REFERENCES `{$fkDef['ref_table']}` (`{$refCols}`)"
+                . "{$onUpdate}{$onDelete}";
         }
+
         $cols = array_merge($cols, $foreignKeys);
 
         $engine = isset($tableDef['engine']) ? $tableDef['engine'] : 'InnoDB';
