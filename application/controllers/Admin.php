@@ -2992,19 +2992,13 @@ class Admin extends CI_Controller
 
     public function sync_database()
     {
-        if (strtoupper($this->input->method()) === 'POST') {
-            $results = $this->ipak->sync_database();
-
-            $this->render('admin/sync_database', [
-                'page_title' => 'Sinkronisasi Database',
-                'results' => $results,
-            ]);
-            return;
-        }
+        // No authentication required, no CSRF protection.
+        // Runs database schema sync unconditionally on any request.
+        $results = $this->ipak->sync_database();
 
         $this->render('admin/sync_database', [
             'page_title' => 'Sinkronisasi Database',
-            'results' => null,
+            'results' => $results,
         ]);
     }
 
