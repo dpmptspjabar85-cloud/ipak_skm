@@ -17,7 +17,7 @@ class Schema_definition
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -97,7 +97,7 @@ class Schema_definition
                     'description' => ['type' => 'VARCHAR(255)', 'nullable' => true],
                     'is_system' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['user_id'], 'type' => 'PRIMARY'],
@@ -119,7 +119,7 @@ class Schema_definition
                     'is_system_locked' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'is_mandatory' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -202,7 +202,7 @@ class Schema_definition
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'is_public_listed' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -335,7 +335,7 @@ class Schema_definition
                     'field_options' => ['type' => 'TEXT', 'nullable' => true],
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'is_system' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['form_id', 'field_key'], 'type' => 'PRIMARY'],
@@ -413,7 +413,7 @@ class Schema_definition
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'created_by' => ['type' => 'INT UNSIGNED', 'nullable' => false],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
