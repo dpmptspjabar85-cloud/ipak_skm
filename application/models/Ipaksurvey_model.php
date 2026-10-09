@@ -40,8 +40,8 @@ class Ipaksurvey_model extends CI_Model
     }
 
     /**
-     * Ensure ipak_response_answers has required columns.
-     * Adds missing columns from migration 014 schema.
+     * Ensure ipak_response_answers has ALL required columns.
+     * Adds missing columns from migration 002 + 014 schema.
      */
     private function ensure_response_answers_columns()
     {
@@ -50,20 +50,36 @@ class Ipaksurvey_model extends CI_Model
         }
         
         $existingColumns = array_keys($this->get_table_columns('ipak_response_answers'));
+        
+        // Core columns needed for ipak_all_responses view and scoring queries
         $requiredColumns = [
-            'flex_response_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN flex_response_id BIGINT UNSIGNED NULL AFTER skm_data_id',
-            'normalized_score' => 'ALTER TABLE ipak_response_answers ADD COLUMN normalized_score DECIMAL(8,2) NULL',
-            'score' => 'ALTER TABLE ipak_response_answers ADD COLUMN score DECIMAL(8,2) NULL AFTER normalized_score',
-            'skm_data_nilai' => 'ALTER TABLE ipak_response_answers ADD COLUMN skm_data_nilai TEXT NULL',
+            'skm_data_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS skm_data_id INT(10) NULL',
+            'flex_response_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS flex_response_id BIGINT UNSIGNED NULL',
+            'normalized_score' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS normalized_score DECIMAL(8,2) NULL',
+            'score' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS score DECIMAL(8,2) NULL',
+            'skm_data_nilai' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS skm_data_nilai TEXT NULL',
+            'question_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS question_id INT(10) NULL',
+            'answer_option_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS answer_option_id INT(10) NULL',
+            'answer_value' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS answer_value TEXT NULL',
+            'tgl_pengisian' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS tgl_pengisian DATE NULL',
         ];
         
         foreach ($requiredColumns as $column => $alterSql) {
             if (!in_array($column, $existingColumns)) {
                 try {
+                    // Use CREATE OR REPLACE TABLE fallback if ADD COLUMN fails
                     $this->db->query($alterSql);
                     log_message('error', "[IPAK Emergency] Added column $column to ipak_response_answers");
                 } catch (Exception $e) {
                     log_message('error', "[IPAK Emergency] Failed to add column $column: " . $e->getMessage());
+                    // Try without IF NOT EXISTS
+                    $fallbackSql = str_replace('ADD COLUMN IF NOT EXISTS', 'ADD COLUMN', $alterSql);
+                    try {
+                        $this->db->query($fallbackSql);
+                        log_message('error', "[IPAK Emergency] Added column $column via fallback");
+                    } catch (Exception $e2) {
+                        log_message('error', "[IPAK Emergency] Fallback also failed for $column: " . $e2->getMessage());
+                    }
                 }
             }
         }
