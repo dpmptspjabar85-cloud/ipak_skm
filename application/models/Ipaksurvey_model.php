@@ -4270,6 +4270,10 @@ class Ipaksurvey_model extends CI_Model
                 $colSql .= ' AUTO_INCREMENT';
             }
 
+            if (!empty($colDef['on_update_column'])) {
+                $colSql .= ' ON UPDATE ' . $colDef['on_update_column'];
+            }
+
             if (!empty($colDef['primary'])) {
                 $primaryKeys[] = $colName;
             }
@@ -4346,6 +4350,10 @@ class Ipaksurvey_model extends CI_Model
 
         if (!empty($colDef['auto_increment'])) {
             $colSql .= ' AUTO_INCREMENT';
+        }
+
+        if (!empty($colDef['on_update_column'])) {
+            $colSql .= ' ON UPDATE ' . $colDef['on_update_column'];
         }
 
         return "ALTER TABLE `{$tableName}` ADD COLUMN {$colSql};";

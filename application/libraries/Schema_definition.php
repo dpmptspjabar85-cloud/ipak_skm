@@ -16,8 +16,8 @@ class Schema_definition
                     'weight' => ['type' => 'DECIMAL(8,2)', 'nullable' => false, 'default' => '1.00'],
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -38,7 +38,7 @@ class Schema_definition
                     'normalized_score' => ['type' => 'DECIMAL(6,2)', 'nullable' => false, 'default' => '0'],
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -69,7 +69,7 @@ class Schema_definition
                     'option_label_snapshot' => ['type' => 'VARCHAR(150)', 'nullable' => false],
                     'option_value_snapshot' => ['type' => 'DECIMAL(8,2)', 'nullable' => false],
                     'normalized_score_snapshot' => ['type' => 'DECIMAL(6,2)', 'nullable' => false],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -96,8 +96,8 @@ class Schema_definition
                     'role_name' => ['type' => 'VARCHAR(50)', 'nullable' => false],
                     'description' => ['type' => 'VARCHAR(255)', 'nullable' => true],
                     'is_system' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['user_id'], 'type' => 'PRIMARY'],
@@ -118,8 +118,8 @@ class Schema_definition
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'is_system_locked' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'is_mandatory' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -138,7 +138,7 @@ class Schema_definition
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'weight_override' => ['type' => 'DECIMAL(8,2)', 'nullable' => true],
                     'is_required' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['survey_id', 'question_id'], 'type' => 'PRIMARY'],
@@ -201,8 +201,8 @@ class Schema_definition
                     'is_default' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'is_public_listed' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -220,7 +220,7 @@ class Schema_definition
                     'survey_id' => ['type' => 'INT UNSIGNED', 'nullable' => false, 'primary' => true],
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'section_label' => ['type' => 'VARCHAR(150)', 'nullable' => true],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['form_id', 'survey_id'], 'type' => 'PRIMARY'],
@@ -257,7 +257,7 @@ class Schema_definition
                     'category_label' => ['type' => 'VARCHAR(80)', 'nullable' => false],
                     'answer_count' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'weight_total' => ['type' => 'DECIMAL(10,2)', 'nullable' => false, 'default' => '0'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -297,7 +297,7 @@ class Schema_definition
                     'survey_result_id' => ['type' => 'BIGINT UNSIGNED', 'nullable' => false, 'primary' => true],
                     'response_answer_id' => ['type' => 'BIGINT UNSIGNED', 'nullable' => false, 'primary' => true],
                     'applied_weight' => ['type' => 'DECIMAL(8,2)', 'nullable' => false, 'default' => '1.00'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['survey_result_id', 'response_answer_id'], 'type' => 'PRIMARY'],
@@ -335,7 +335,7 @@ class Schema_definition
                     'field_options' => ['type' => 'TEXT', 'nullable' => true],
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                     'is_system' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['form_id', 'field_key'], 'type' => 'PRIMARY'],
@@ -366,7 +366,7 @@ class Schema_definition
                     'field_type_snapshot' => ['type' => 'VARCHAR(20)', 'nullable' => false, 'default' => 'text'],
                     'field_options_snapshot' => ['type' => 'TEXT', 'nullable' => true],
                     'sort_order_snapshot' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['kode', 'field_key'], 'type' => 'PRIMARY'],
@@ -382,7 +382,7 @@ class Schema_definition
                     'form_code' => ['type' => 'VARCHAR(30)', 'nullable' => false],
                     'survey_type' => ['type' => "ENUM('SKM','SURVEY')", 'nullable' => false, 'default' => 'SKM'],
                     'response_source' => ['type' => "ENUM('SKM','FLEX')", 'nullable' => false, 'default' => 'SKM'],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['kode'], 'type' => 'PRIMARY'],
@@ -412,8 +412,8 @@ class Schema_definition
                     'expires_at' => ['type' => 'DATETIME', 'nullable' => true],
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'created_by' => ['type' => 'INT UNSIGNED', 'nullable' => false],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
-                    'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
+                    'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null, 'on_update_column' => 'CURRENT_TIMESTAMP'],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
@@ -437,7 +437,7 @@ class Schema_definition
                     'response_time_ms' => ['type' => 'INT', 'nullable' => false],
                     'request_params' => ['type' => 'JSON', 'nullable' => true],
                     'error_message' => ['type' => 'TEXT', 'nullable' => true],
-                    'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                    'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [
                     'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
