@@ -102,7 +102,7 @@ ServerSignature Off
 	#  This prevents mod_rewrite from intercepting CSS/JS/PNG requests
 	# =========================================================================
 	# Bypass routing for static assets
-	RewriteRule ^(assets|images|css|js|img)/ - [L,NC]
+	RewriteRule ^(?:assets|images|css|js|img)/ - [L,NC]
 	
 	RewriteCond $1 !^(index\.php|resources|robots\.txt)
 	RewriteCond %{REQUEST_FILENAME} !-f
