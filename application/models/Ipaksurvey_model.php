@@ -126,8 +126,8 @@ class Ipaksurvey_model extends CI_Model
                 'deskripsi' => ['type' => 'TEXT', 'nullable' => false],
                 'digit' => ['type' => 'TINYINT UNSIGNED', 'nullable' => false, 'default' => '0'],
                 'hirarki' => ['type' => 'VARCHAR(40)', 'nullable' => false, 'default' => ''],
-                'created_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
-                'updated_at' => ['type' => 'DATETIME', 'nullable' => false, 'default' => 'CURRENT_TIMESTAMP'],
+                'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
+                'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
             ],
             'indexes' => [
                 'PRIMARY' => ['columns' => ['id'], 'type' => 'PRIMARY'],
