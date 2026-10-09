@@ -53,9 +53,18 @@ $script_dir  = ($script_dir === DIRECTORY_SEPARATOR || $script_dir === '/' || $s
     : rtrim($script_dir, '/\\') . '/';
 
 // $config['base_url'] = $scheme . $_SERVER['HTTP_HOST'] . $script_dir;
-$config['base_url'] = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') 
-    . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost'))
-    . '/ipak_skm/';
+// Force production URL if HTTP_HOST is localhost (behind reverse proxy)
+$httpHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+$isBehindProxy = (strpos($httpHost, 'localhost') !== false || strpos($httpHost, '127.0.0.1') !== false);
+
+if ($isBehindProxy && isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+    // Trust reverse proxy header
+    $httpHost = $_SERVER['HTTP_X_FORWARDED_HOST'];
+} elseif ($isBehindProxy && strpos($_SERVER['SERVER_NAME'] ?? '', 'dpmptsp.jabarprov.go.id') !== false) {
+    $httpHost = 'dpmptsp.jabarprov.go.id';
+}
+
+$config['base_url'] = $scheme . $httpHost . $script_dir;
 // $config['base_url'] = 'https://' . $_SERVER['HTTP_HOST'] . '/ipak_skm/';
 
 /*
