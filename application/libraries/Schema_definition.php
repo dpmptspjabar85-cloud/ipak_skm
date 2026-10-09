@@ -118,6 +118,7 @@ class Schema_definition
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'is_system_locked' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'is_mandatory' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
+                    'storage_profile' => ['type' => "ENUM('LEGACY_SKM','FLEXIBLE')", 'nullable' => false, 'default' => 'FLEXIBLE'],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                     'updated_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
