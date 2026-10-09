@@ -54,18 +54,18 @@ if (!isset($GLOBALS['IPAK_MAINTENANCE_ENTRY'])) {
     $GLOBALS['IPAK_MAINTENANCE_ENTRY'] = true;
 }
 
-// Auto-run in CLI mode
+// Auto-run in CLI mode - directly call model, bypass routing
 if (php_sapi_name() === 'cli' && realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
-    $_SERVER['PATH_INFO'] = '/admin/sync_database';
-    $_SERVER['REQUEST_URI'] = '/index.php/admin/sync_database';
-    $_SERVER['SCRIPT_NAME'] = '/index.php';
-    $_SERVER['SCRIPT_FILENAME'] = $ipakRoot . DIRECTORY_SEPARATOR . 'index.php';
-    $_SERVER['PHP_SELF'] = '/index.php/admin/sync_database';
+    $_SERVER['SCRIPT_NAME'] = basename($_SERVER['SCRIPT_FILENAME']);
+    $_SERVER['REQUEST_URI'] = '/';
+    $_SERVER['SCRIPT_FILENAME'] = __FILE__;
+    $_SERVER['PHP_SELF'] = '/sync-database.php';
+
     require_once $ipakRoot . DIRECTORY_SEPARATOR . 'index.php';
     exit;
 }
 
-// HTTP mode - gunakan router normal
+// HTTP mode - gunakan router ke admin/sync_database (no auth required)
 $_SERVER['PATH_INFO'] = '/admin/sync_database';
 $_SERVER['REQUEST_URI'] = '/index.php/admin/sync_database';
 $_SERVER['SCRIPT_NAME'] = '/index.php';
