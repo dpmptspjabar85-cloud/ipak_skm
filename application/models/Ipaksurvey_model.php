@@ -13,8 +13,20 @@ class Ipaksurvey_model extends CI_Model
         static $viewChecked = false;
         if (!$viewChecked) {
             $viewChecked = true;
-            if (!$this->db->table_exists('ipak_all_responses')) {
-                $this->sync_database();
+            try {
+                if (!$this->db->table_exists('ipak_all_responses')) {
+                    log_message('error', '[IPAK Emergency Sync] Table ipak_all_responses missing. Running sync_database()...');
+                    $this->sync_database();
+                    // Verify view created
+                    $this->db->reset_query();
+                    if (!$this->db->table_exists('ipak_all_responses')) {
+                        log_message('error', '[IPAK Emergency Sync] FAILED to create ipak_all_responses after sync_database()');
+                    } else {
+                        log_message('error', '[IPAK Emergency Sync] SUCCESS: ipak_all_responses view created');
+                    }
+                }
+            } catch (Exception $e) {
+                log_message('error', '[IPAK Emergency Sync] Exception: ' . $e->getMessage());
             }
         }
     }
@@ -2848,6 +2860,13 @@ class Ipaksurvey_model extends CI_Model
                 ->where('YEAR(s.tgl_pengisian)', (int) $year, false);
             $this->apply_filters($chartFilters, 's');
         } else {
+            // Emergency: Ensure view exists
+            if (!$this->db->table_exists($this->allResponsesView)) {
+                $this->sync_database();
+                if (!$this->db->table_exists($this->allResponsesView)) {
+                    return [];
+                }
+            }
             $this->db
                 ->select('tgl_pengisian,rata,gender,usia,pendidikan_id,pekerjaan_id,sektor')
                 ->from($this->allResponsesView)
@@ -4036,20 +4055,9 @@ class Ipaksurvey_model extends CI_Model
         $results['foreign_keys_skipped'] = [];
         $results['errors'] = [];
 
-        // Handle ipak_all_responses VIEW with conditional column mapping
-        if (isset($requiredSchema['ipak_all_responses'])) {
-            $viewSql = $this->build_conditional_response_view_sql();
-            if ($viewSql !== false) {
-                try {
-                    $this->db->query($viewSql);
-                    $results['tables_created'][] = 'ipak_all_responses';
-                } catch (Exception $e) {
-                    $results['errors'][] = "Failed to create view ipak_all_responses: " . $e->getMessage();
-                }
-            } else {
-                $results['errors'][] = "Skipped ipak_all_responses view: required source tables not found";
-            }
-        }
+        // Remove ipak_all_responses from schema list — it will be created at the END
+        // after all required tables (skm_data_skm, ipak_survey_responses) are ensured
+        unset($requiredSchema['ipak_all_responses']);
 
         foreach ($requiredSchema as $tableName => $tableDef) {
             // Handle VIEW definitions
@@ -4168,7 +4176,66 @@ class Ipaksurvey_model extends CI_Model
             }
         }
 
+        // --- Create ipak_all_responses VIEW (after all tables are ensured to exist) ---
+        $viewSql = $this->build_conditional_response_view_sql();
+        if ($viewSql !== false) {
+            try {
+                $this->db->query($viewSql);
+                $results['tables_created'][] = 'ipak_all_responses';
+            } catch (Exception $e) {
+                log_message('error', '[IPAK Sync] Failed to create view ipak_all_responses: ' . $e->getMessage());
+                // Try simpler fallback view — SELECT from whichever table exists
+                $fallbackSql = $this->build_fallback_response_view_sql();
+                if ($fallbackSql) {
+                    try {
+                        $this->db->query($fallbackSql);
+                        $results['tables_created'][] = 'ipak_all_responses (fallback)';
+                        log_message('error', '[IPAK Sync] Created fallback view for ipak_all_responses');
+                    } catch (Exception $e2) {
+                        $results['errors'][] = "Failed to create fallback view: " . $e2->getMessage();
+                        log_message('error', '[IPAK Sync] Fallback view also failed: ' . $e2->getMessage());
+                    }
+                } else {
+                    $results['errors'][] = "Failed to create view ipak_all_responses: " . $e->getMessage();
+                }
+            }
+        } else {
+            $results['errors'][] = "Skipped ipak_all_responses: source tables not available";
+            log_message('error', '[IPAK Sync] Source tables not found for ipak_all_responses view');
+        }
+
         return $results;
+    }
+
+    /**
+     * Fallback view creation — create a simple view from whichever table exists.
+     * This ensures the view always exists, even with a degraded schema.
+     */
+    private function build_fallback_response_view_sql()
+    {
+        $skmExists = $this->db->table_exists('skm_data_skm');
+        $flexExists = $this->db->table_exists('ipak_survey_responses');
+
+        if ($skmExists && $flexExists) {
+            // Both exist — try simple SELECT * (may fail if column count differs)
+            return null;
+        }
+
+        if ($skmExists) {
+            return "CREATE OR REPLACE VIEW \`ipak_all_responses\` AS
+SELECT 'SKM' AS response_source, d.* FROM skm_data_skm d WHERE d.flag_skm = 1
+UNION ALL
+SELECT 'SURVEY' AS response_source, NULL AS kode, NULL AS nib, NULL AS permohonan_id LIMIT 0";
+        }
+
+        if ($flexExists) {
+            return "CREATE OR REPLACE VIEW \`ipak_all_responses\` AS
+SELECT 'SKM' AS response_source, NULL AS kode, NULL AS nib, NULL AS permohonan_id LIMIT 0
+UNION ALL
+SELECT 'SURVEY' AS response_source, r.* FROM ipak_survey_responses r";
+        }
+
+        return null;
     }
 
     private function get_table_columns($tableName)
