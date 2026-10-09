@@ -458,6 +458,40 @@ class Schema_definition
                 'charset' => 'utf8',
                 'collate' => 'utf8_general_ci',
             ],
+            'ipak_all_responses' => [
+                'type' => 'VIEW',
+                'sql' => "
+CREATE OR REPLACE VIEW `ipak_all_responses` AS
+SELECT
+    r.id,
+    r.data_skm_id,
+    r.resi,
+    r.survey_id,
+    r.question_id,
+    r.answer_option_id,
+    r.answer_value,
+    r.normalized_score,
+    r.rata,
+    r.tgl_pengisian,
+    r.is_complete,
+    q.question_code,
+    q.question_text,
+    q.measurement_name,
+    q.category_name,
+    o.option_code,
+    o.option_label,
+    o.option_value AS option_raw_value,
+    o.normalized_score AS option_normalized_score,
+    o.sort_order AS option_sort,
+    s.survey_code,
+    s.survey_name,
+    s.index_label AS survey_label
+FROM `ipak_response_answers` r
+      LEFT JOIN `ipak_questions` q ON `q`.`id` = `r`.`question_id`
+      LEFT JOIN `ipak_answer_options` o ON `o`.`id` = `r`.`answer_option_id`
+      LEFT JOIN `ipak_surveys` s ON `s`.`id` = `r`.`survey_id`;
+",
+            ],
         ];
     }
 }

@@ -4015,6 +4015,20 @@ class Ipaksurvey_model extends CI_Model
         ];
 
         foreach ($requiredSchema as $tableName => $tableDef) {
+            // Handle VIEW definitions
+            if (isset($tableDef['type']) && $tableDef['type'] === 'VIEW') {
+                $createSql = isset($tableDef['sql']) ? $tableDef['sql'] : '';
+                if (!empty($createSql)) {
+                    try {
+                        $this->db->query($createSql);
+                        $results['tables_created'][] = $tableName;
+                    } catch (Exception $e) {
+                        $results['errors'][] = "Failed to create view {$tableName}: " . $e->getMessage();
+                    }
+                }
+                continue;
+            }
+
             $tableExists = $this->db->table_exists($tableName);
 
             if (!$tableExists) {
