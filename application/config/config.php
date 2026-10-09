@@ -55,12 +55,13 @@ $script_dir  = ($script_dir === DIRECTORY_SEPARATOR || $script_dir === '/' || $s
 // $config['base_url'] = $scheme . $_SERVER['HTTP_HOST'] . $script_dir;
 // Force production URL if HTTP_HOST is localhost (behind reverse proxy)
 $httpHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+$serverName = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
 $isBehindProxy = (strpos($httpHost, 'localhost') !== false || strpos($httpHost, '127.0.0.1') !== false);
 
-if ($isBehindProxy && isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+if ($isBehindProxy && !empty($_SERVER['HTTP_X_FORWARDED_HOST'])) {
     // Trust reverse proxy header
     $httpHost = $_SERVER['HTTP_X_FORWARDED_HOST'];
-} elseif ($isBehindProxy && strpos($_SERVER['SERVER_NAME'] ?? '', 'dpmptsp.jabarprov.go.id') !== false) {
+} elseif ($isBehindProxy && strpos($serverName, 'dpmptsp.jabarprov.go.id') !== false) {
     $httpHost = 'dpmptsp.jabarprov.go.id';
 }
 
