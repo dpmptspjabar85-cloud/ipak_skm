@@ -308,65 +308,6 @@ switch (ENVIRONMENT)
 	define('VIEWPATH', $view_folder.DIRECTORY_SEPARATOR);
 
 /*
- * Emergency patch: ensure ipak_all_responses view exists
- * This runs only when the view is missing to prevent runtime errors.
- */
-$emergencyViewSql = "
-CREATE OR REPLACE VIEW `ipak_all_responses` AS
-SELECT
-    r.id,
-    r.data_skm_id,
-    r.resi,
-    r.survey_id,
-    r.question_id,
-    r.answer_option_id,
-    r.answer_value,
-    r.normalized_score,
-    r.rata,
-    r.tgl_pengisian,
-    r.is_complete,
-    q.question_code,
-    q.question_text,
-    q.measurement_name,
-    q.category_name,
-    o.option_code,
-    o.option_label,
-    o.option_value AS option_raw_value,
-    o.normalized_score AS option_normalized_score,
-    o.sort_order AS option_sort,
-    s.survey_code,
-    s.survey_name,
-    s.index_label AS survey_label
-FROM `ipak_response_answers` r
-      LEFT JOIN `ipak_questions` q ON `q`.`id` = `r`.`question_id`
-      LEFT JOIN `ipak_answer_options` o ON `o`.`id` = `r`.`answer_option_id`
-      LEFT JOIN `ipak_surveys` s ON `s`.`id` = `r`.`survey_id`
-";
-
-// Check if view exists and create if missing
-$ci_base = dirname(__FILE__);
-$env = getenv('CI_ENV') ?: 'development';
-$config_db_file = $ci_base . '/application/config/' . $env . '/database.php';
-if (!file_exists($config_db_file)) {
-    $config_db_file = $ci_base . '/application/config/database.php';
-}
-
-if (file_exists($config_db_file)) {
-    include $config_db_file;
-    if (isset($db['default'])) {
-        $db_config = $db['default'];
-        $db_link = @mysqli_connect($db_config['hostname'], $db_config['username'], $db_config['password'], $env === 'production' ? 'db_sicantik_backoffice' : $db_config['database']);
-        if ($db_link) {
-            $view_check = @mysqli_query($db_link, "SHOW FULL TABLES IN `" . ($env === 'production' ? 'db_sicantik_backoffice' : $db_config['database']) . "` WHERE Table_type='VIEW' AND Tables_in_".($env === 'production' ? 'db_sicantik_backoffice' : $db_config['database'])." LIKE 'ipak_all_responses'");
-            if (mysqli_num_rows($view_check) == 0) {
-                @mysqli_query($db_link, $emergencyViewSql);
-            }
-            @mysqli_close($db_link);
-        }
-    }
-}
-
-/*
  * --------------------------------------------------------------------
  * LOAD THE BOOTSTRAP FILE
  * --------------------------------------------------------------------
