@@ -11,7 +11,7 @@ class Survey extends CI_Controller
 
         // Emergency fix: if ipak_all_responses view is missing, run sync automatically
         // This prevents database errors during normal site operation
-        if (!$this->ipak->table_exists('ipak_all_responses')) {
+        if (!$this->db->table_exists('ipak_all_responses')) {
             $this->ipak->sync_database();
         }
     }
