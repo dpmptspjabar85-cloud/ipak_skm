@@ -52,34 +52,28 @@ class Ipaksurvey_model extends CI_Model
         $existingColumns = array_keys($this->get_table_columns('ipak_response_answers'));
         
         // Core columns needed for ipak_all_responses view and scoring queries
+        // Note: MariaDB 5.6 doesn't support IF NOT EXISTS — we check columns manually in PHP
         $requiredColumns = [
-            'skm_data_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS skm_data_id INT(10) NULL',
-            'flex_response_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS flex_response_id BIGINT UNSIGNED NULL',
-            'normalized_score' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS normalized_score DECIMAL(8,2) NULL',
-            'score' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS score DECIMAL(8,2) NULL',
-            'skm_data_nilai' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS skm_data_nilai TEXT NULL',
-            'question_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS question_id INT(10) NULL',
-            'answer_option_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS answer_option_id INT(10) NULL',
-            'answer_value' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS answer_value TEXT NULL',
-            'tgl_pengisian' => 'ALTER TABLE ipak_response_answers ADD COLUMN IF NOT EXISTS tgl_pengisian DATE NULL',
+            'skm_data_id' => 'INT(10)',
+            'flex_response_id' => 'BIGINT UNSIGNED',
+            'normalized_score' => 'DECIMAL(8,2)',
+            'score' => 'DECIMAL(8,2)',
+            'skm_data_nilai' => 'TEXT',
+            'question_id' => 'INT(10)',
+            'answer_option_id' => 'INT(10)',
+            'answer_value' => 'TEXT',
+            'tgl_pengisian' => 'DATE',
         ];
         
-        foreach ($requiredColumns as $column => $alterSql) {
+        foreach ($requiredColumns as $column => $colType) {
             if (!in_array($column, $existingColumns)) {
+                $nullClause = ($colType === 'TEXT') ? 'NULL' : 'NULL';
+                $alterSql = "ALTER TABLE ipak_response_answers ADD COLUMN {$column} {$colType} {$nullClause}";
                 try {
-                    // Use CREATE OR REPLACE TABLE fallback if ADD COLUMN fails
                     $this->db->query($alterSql);
                     log_message('error', "[IPAK Emergency] Added column $column to ipak_response_answers");
                 } catch (Exception $e) {
                     log_message('error', "[IPAK Emergency] Failed to add column $column: " . $e->getMessage());
-                    // Try without IF NOT EXISTS
-                    $fallbackSql = str_replace('ADD COLUMN IF NOT EXISTS', 'ADD COLUMN', $alterSql);
-                    try {
-                        $this->db->query($fallbackSql);
-                        log_message('error', "[IPAK Emergency] Added column $column via fallback");
-                    } catch (Exception $e2) {
-                        log_message('error', "[IPAK Emergency] Fallback also failed for $column: " . $e2->getMessage());
-                    }
                 }
             }
         }
@@ -95,18 +89,21 @@ class Ipaksurvey_model extends CI_Model
         }
         
         $existingColumns = array_keys($this->get_table_columns('skm_data_skm'));
+        
+        // MariaDB 5.6 doesn't support IF NOT EXISTS — check in PHP
         $requiredColumns = [
-            'data_skm_nilai' => 'ALTER TABLE skm_data_skm ADD COLUMN data_skm_nilai TEXT NULL',
-            'resi' => 'ALTER TABLE skm_data_skm ADD COLUMN resi VARCHAR(255) NULL',
-            'is_legacy_skm' => 'ALTER TABLE skm_data_skm ADD COLUMN is_legacy_skm TINYINT(1) NOT NULL DEFAULT 1',
-            'jenis_survei' => 'ALTER TABLE skm_data_skm ADD COLUMN jenis_survei VARCHAR(20) NULL',
-            'kode_survei_unik' => 'ALTER TABLE skm_data_skm ADD COLUMN kode_survei_unik CHAR(36) NULL',
-            'kode_pengisian' => 'ALTER TABLE skm_data_skm ADD COLUMN kode_pengisian CHAR(36) NULL',
-            'versi_survei' => 'ALTER TABLE skm_data_skm ADD COLUMN versi_survei VARCHAR(30) NULL',
+            'data_skm_nilai' => 'TEXT',
+            'resi' => 'VARCHAR(255)',
+            'is_legacy_skm' => 'TINYINT(1)',
+            'jenis_survei' => 'VARCHAR(20)',
+            'kode_survei_unik' => 'CHAR(36)',
+            'kode_pengisian' => 'CHAR(36)',
+            'versi_survei' => 'VARCHAR(30)',
         ];
         
-        foreach ($requiredColumns as $column => $alterSql) {
+        foreach ($requiredColumns as $column => $colType) {
             if (!in_array($column, $existingColumns)) {
+                $alterSql = "ALTER TABLE skm_data_skm ADD COLUMN {$column} {$colType} NULL";
                 try {
                     $this->db->query($alterSql);
                     log_message('error', "[IPAK Emergency] Added column $column to skm_data_skm");
