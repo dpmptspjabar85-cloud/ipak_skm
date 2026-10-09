@@ -8,6 +8,12 @@ class Survey extends CI_Controller
         parent::__construct();
         $this->load->model('Ipaksurvey_model', 'ipak');
         $this->config->load('ipak');
+
+        // Emergency fix: if ipak_all_responses view is missing, run sync automatically
+        // This prevents database errors during normal site operation
+        if (!$this->ipak->table_exists('ipak_all_responses')) {
+            $this->ipak->sync_database();
+        }
     }
 
     public function index()
