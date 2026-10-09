@@ -54,14 +54,22 @@ if (!isset($GLOBALS['IPAK_MAINTENANCE_ENTRY'])) {
     $GLOBALS['IPAK_MAINTENANCE_ENTRY'] = true;
 }
 
-// Berkas ini adalah satu-satunya front controller untuk endpoint ini, jadi
-// penentuan rute ditulis tanpa syarat. Sebagian konfigurasi web server sudah
-// mengisi PATH_INFO sebelum skrip berjalan, sehingga penulisan bersyarat membuat
-// rute ikut terpengaruh dan endpoint tidak ditemukan.
-$_SERVER['PATH_INFO'] = '/maintenance/sync_database';
-$_SERVER['REQUEST_URI'] = '/index.php/maintenance/sync_database';
+// Auto-run in CLI mode
+if (php_sapi_name() === 'cli' && realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
+    $_SERVER['PATH_INFO'] = '/admin/sync_database';
+    $_SERVER['REQUEST_URI'] = '/index.php/admin/sync_database';
+    $_SERVER['SCRIPT_NAME'] = '/index.php';
+    $_SERVER['SCRIPT_FILENAME'] = $ipakRoot . DIRECTORY_SEPARATOR . 'index.php';
+    $_SERVER['PHP_SELF'] = '/index.php/admin/sync_database';
+    require_once $ipakRoot . DIRECTORY_SEPARATOR . 'index.php';
+    exit;
+}
+
+// HTTP mode - gunakan router normal
+$_SERVER['PATH_INFO'] = '/admin/sync_database';
+$_SERVER['REQUEST_URI'] = '/index.php/admin/sync_database';
 $_SERVER['SCRIPT_NAME'] = '/index.php';
 $_SERVER['SCRIPT_FILENAME'] = $ipakRoot . DIRECTORY_SEPARATOR . 'index.php';
-$_SERVER['PHP_SELF'] = '/index.php/maintenance/sync_database';
+$_SERVER['PHP_SELF'] = '/index.php/admin/sync_database';
 
 require_once $ipakRoot . DIRECTORY_SEPARATOR . 'index.php';
