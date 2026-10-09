@@ -114,7 +114,7 @@ class Schema_definition
                     'survey_name' => ['type' => 'VARCHAR(150)', 'nullable' => false],
                     'index_label' => ['type' => 'VARCHAR(60)', 'nullable' => false],
                     'description' => ['type' => 'TEXT', 'nullable' => true],
-                    'color' => ['type' => 'VARCHAR(10)', 'nullable' => false, 'default' => "'#3049d8'"],
+                    'color' => ['type' => 'VARCHAR(10)', 'nullable' => false, 'default' => "#3049d8"],
                     'is_active' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '1'],
                     'is_system_locked' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
                     'is_mandatory' => ['type' => 'TINYINT(1)', 'nullable' => false, 'default' => '0'],
@@ -172,7 +172,7 @@ class Schema_definition
                     'category_label' => ['type' => 'VARCHAR(80)', 'nullable' => false],
                     'minimum_score' => ['type' => 'DECIMAL(6,2)', 'nullable' => false],
                     'maximum_score' => ['type' => 'DECIMAL(6,2)', 'nullable' => false],
-                    'color' => ['type' => 'VARCHAR(10)', 'nullable' => false, 'default' => "'#64748b'"],
+                    'color' => ['type' => 'VARCHAR(10)', 'nullable' => false, 'default' => "#64748b"],
                     'sort_order' => ['type' => 'INT', 'nullable' => false, 'default' => '0'],
                 ],
                 'indexes' => [
