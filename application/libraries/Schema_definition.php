@@ -485,12 +485,12 @@ SELECT
     d.keterangan,
     d.tgl_buat,
     d.flag_skm,
-    d.jenis_survei,
-    d.kode_survei_unik,
-    d.kode_pengisian,
-    d.versi_survei,
-    d.resi,
-    d.is_legacy_skm
+    NULL AS jenis_survei,
+    NULL AS kode_survei_unik,
+    NULL AS kode_pengisian,
+    NULL AS versi_survei,
+    NULL AS resi,
+    1 AS is_legacy_skm
 FROM skm_data_skm d
 WHERE d.flag_skm = 1
 
