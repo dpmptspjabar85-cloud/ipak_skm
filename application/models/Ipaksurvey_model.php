@@ -12,13 +12,19 @@ class Ipaksurvey_model extends CI_Model
         if (!$emergencyCheck) {
             $emergencyCheck = true;
             try {
-                // Create ipak_survey_responses if missing (migration 014)
-                if (!$this->db->table_exists('ipak_survey_responses')) {
-                    $this->create_emergency_flexible_tables();
-                }
-                
-                // Ensure ipak_all_responses view exists
-                if (!$this->db->table_exists('ipak_all_responses')) {
+                // Create core tables if missing
+        if (!$this->db->table_exists('ipak_survey_responses')) {
+            $this->create_emergency_flexible_tables();
+        }
+        
+        // Ensure required columns exist in ipak_response_answers (migration 014)
+        $this->ensure_response_answers_columns();
+        
+        // Ensure skm_data_skm has required columns
+        $this->ensure_skm_data_skm_columns();
+        
+        // Ensure view exists
+        if (!$this->db->table_exists('ipak_all_responses')) {
                     log_message('error', '[IPAK Emergency] View missing. Running sync_database()...');
                     $this->sync_database();
                     $this->db->reset_query();
@@ -29,6 +35,68 @@ class Ipaksurvey_model extends CI_Model
                 }
             } catch (Exception $e) {
                 log_message('error', '[IPAK Emergency] Exception: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Ensure ipak_response_answers has required columns.
+     * Adds missing columns from migration 014 schema.
+     */
+    private function ensure_response_answers_columns()
+    {
+        if (!$this->db->table_exists('ipak_response_answers')) {
+            return;
+        }
+        
+        $existingColumns = array_keys($this->get_table_columns('ipak_response_answers'));
+        $requiredColumns = [
+            'flex_response_id' => 'ALTER TABLE ipak_response_answers ADD COLUMN flex_response_id BIGINT UNSIGNED NULL AFTER skm_data_id',
+            'normalized_score' => 'ALTER TABLE ipak_response_answers ADD COLUMN normalized_score DECIMAL(8,2) NULL',
+            'score' => 'ALTER TABLE ipak_response_answers ADD COLUMN score DECIMAL(8,2) NULL AFTER normalized_score',
+            'skm_data_nilai' => 'ALTER TABLE ipak_response_answers ADD COLUMN skm_data_nilai TEXT NULL',
+        ];
+        
+        foreach ($requiredColumns as $column => $alterSql) {
+            if (!in_array($column, $existingColumns)) {
+                try {
+                    $this->db->query($alterSql);
+                    log_message('error', "[IPAK Emergency] Added column $column to ipak_response_answers");
+                } catch (Exception $e) {
+                    log_message('error', "[IPAK Emergency] Failed to add column $column: " . $e->getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Ensure skm_data_skm has required columns for the view.
+     */
+    private function ensure_skm_data_skm_columns()
+    {
+        if (!$this->db->table_exists('skm_data_skm')) {
+            return;
+        }
+        
+        $existingColumns = array_keys($this->get_table_columns('skm_data_skm'));
+        $requiredColumns = [
+            'data_skm_nilai' => 'ALTER TABLE skm_data_skm ADD COLUMN data_skm_nilai TEXT NULL',
+            'resi' => 'ALTER TABLE skm_data_skm ADD COLUMN resi VARCHAR(255) NULL',
+            'is_legacy_skm' => 'ALTER TABLE skm_data_skm ADD COLUMN is_legacy_skm TINYINT(1) NOT NULL DEFAULT 1',
+            'jenis_survei' => 'ALTER TABLE skm_data_skm ADD COLUMN jenis_survei VARCHAR(20) NULL',
+            'kode_survei_unik' => 'ALTER TABLE skm_data_skm ADD COLUMN kode_survei_unik CHAR(36) NULL',
+            'kode_pengisian' => 'ALTER TABLE skm_data_skm ADD COLUMN kode_pengisian CHAR(36) NULL',
+            'versi_survei' => 'ALTER TABLE skm_data_skm ADD COLUMN versi_survei VARCHAR(30) NULL',
+        ];
+        
+        foreach ($requiredColumns as $column => $alterSql) {
+            if (!in_array($column, $existingColumns)) {
+                try {
+                    $this->db->query($alterSql);
+                    log_message('error', "[IPAK Emergency] Added column $column to skm_data_skm");
+                } catch (Exception $e) {
+                    log_message('error', "[IPAK Emergency] Failed to add column $column: " . $e->getMessage());
+                }
             }
         }
     }
