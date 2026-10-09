@@ -7,27 +7,187 @@ class Ipaksurvey_model extends CI_Model
     {
         parent::__construct();
         
-        // Emergency: Ensure ipak_all_responses view exists before any query
-        // This prevents "Table doesn't exist" errors on production servers
-        // where sync_database() may not have been run yet
-        static $viewChecked = false;
-        if (!$viewChecked) {
-            $viewChecked = true;
+        // Emergency: Ensure core tables & view exist before any query
+        static $emergencyCheck = false;
+        if (!$emergencyCheck) {
+            $emergencyCheck = true;
             try {
+                // Create ipak_survey_responses if missing (migration 014)
+                if (!$this->db->table_exists('ipak_survey_responses')) {
+                    $this->create_emergency_flexible_tables();
+                }
+                
+                // Ensure ipak_all_responses view exists
                 if (!$this->db->table_exists('ipak_all_responses')) {
-                    log_message('error', '[IPAK Emergency Sync] Table ipak_all_responses missing. Running sync_database()...');
+                    log_message('error', '[IPAK Emergency] View missing. Running sync_database()...');
                     $this->sync_database();
-                    // Verify view created
                     $this->db->reset_query();
                     if (!$this->db->table_exists('ipak_all_responses')) {
-                        log_message('error', '[IPAK Emergency Sync] FAILED to create ipak_all_responses after sync_database()');
-                    } else {
-                        log_message('error', '[IPAK Emergency Sync] SUCCESS: ipak_all_responses view created');
+                        // Try direct view creation as ultimate fallback
+                        $this->create_emergency_view();
                     }
                 }
             } catch (Exception $e) {
-                log_message('error', '[IPAK Emergency Sync] Exception: ' . $e->getMessage());
+                log_message('error', '[IPAK Emergency] Exception: ' . $e->getMessage());
             }
+        }
+    }
+
+    /**
+     * Create core flexible survey tables with minimal schema for MySQL 5.6 compat.
+     * This is the emergency minimum — only called when tables don't exist.
+     */
+    private function create_emergency_flexible_tables()
+    {
+        log_message('error', '[IPAK Emergency] Creating core flexible survey tables...');
+        
+        // Minimal ipak_survey_responses
+        $sql = "CREATE TABLE IF NOT EXISTS ipak_survey_responses (
+            kode BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            legacy_skm_data_id INT(10) NULL,
+            nib VARCHAR(20) NULL,
+            resi VARCHAR(20) NULL,
+            permohonan_id INT(10) NULL,
+            nama_responden VARCHAR(100) NULL,
+            status_responden INT(2) NOT NULL DEFAULT 1,
+            responden VARCHAR(100) NULL,
+            mobile VARCHAR(25) NULL,
+            gender INT(3) NULL,
+            usia INT(3) NULL,
+            pekerjaan_id INT(4) NULL,
+            pendidikan_id INT(4) NULL,
+            sektor INT(4) NULL,
+            jenis_ijin INT(4) NULL,
+            tgl_pengisian DATE NULL,
+            data_skm_id TEXT NULL,
+            data_skm_nilai TEXT NULL,
+            total DOUBLE NULL,
+            rata DOUBLE NULL,
+            saran TEXT NULL,
+            keterangan TEXT NULL,
+            tgl_buat DATETIME NULL,
+            flag_skm INT(1) NOT NULL DEFAULT 0,
+            jenis_survei VARCHAR(20) NULL,
+            kode_survei_unik CHAR(36) NULL,
+            kode_pengisian CHAR(36) NULL,
+            versi_survei VARCHAR(30) NULL,
+            is_legacy_skm TINYINT(1) NOT NULL DEFAULT 0,
+            PRIMARY KEY (kode)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci";
+        $this->db->query($sql);
+
+        // Minimal ipak_response_answers
+        $sql = "CREATE TABLE IF NOT EXISTS ipak_response_answers (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            skm_data_id INT(10) NULL,
+            flex_response_id BIGINT UNSIGNED NULL,
+            question_id INT(10) NULL,
+            answer_option_id INT(10) NULL,
+            answer_value TEXT NULL,
+            normalized_score DECIMAL(8,2) NULL,
+            score DECIMAL(8,2) NULL,
+            tgl_pengisian DATE NULL,
+            PRIMARY KEY (id),
+            KEY idx_answer_skm (skm_data_id),
+            KEY idx_answer_flex (flex_response_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci";
+        $this->db->query($sql);
+
+        // Minimal ipak_answer_options
+        $sql = "CREATE TABLE IF NOT EXISTS ipak_answer_options (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            question_id INT UNSIGNED NOT NULL,
+            option_code VARCHAR(20) NOT NULL,
+            option_label VARCHAR(100) NOT NULL,
+            option_value DECIMAL(8,2) DEFAULT NULL,
+            normalized_score DECIMAL(8,2) DEFAULT NULL,
+            sort_order INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (id),
+            KEY idx_option_question (question_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci";
+        $this->db->query($sql);
+
+        // Minimal ipak_questions
+        $sql = "CREATE TABLE IF NOT EXISTS ipak_questions (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            question_code VARCHAR(20) NOT NULL,
+            question_text TEXT NOT NULL,
+            measurement_name VARCHAR(100) NOT NULL,
+            category_name VARCHAR(100) NOT NULL,
+            weight DECIMAL(8,2) NOT NULL DEFAULT '1.00',
+            sort_order INT NOT NULL DEFAULT 0,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NULL DEFAULT NULL,
+            updated_at DATETIME NULL DEFAULT NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci";
+        $this->db->query($sql);
+
+        // Minimal ipak_surveys
+        $sql = "CREATE TABLE IF NOT EXISTS ipak_surveys (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            survey_code VARCHAR(20) NOT NULL,
+            survey_name VARCHAR(100) NOT NULL,
+            index_label VARCHAR(100) NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NULL DEFAULT NULL,
+            updated_at DATETIME NULL DEFAULT NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci";
+        $this->db->query($sql);
+
+        log_message('error', '[IPAK Emergency] Core flexible survey tables created');
+    }
+
+    /**
+     * Ultimate fallback: create a bare-minimum view that won't error.
+     */
+    private function create_emergency_view()
+    {
+        log_message('error', '[IPAK Emergency] Creating fallback view...');
+        
+        $skmExists = $this->db->table_exists('skm_data_skm');
+        $flexExists = $this->db->table_exists('ipak_survey_responses');
+
+        if ($skmExists && $flexExists) {
+            // Use the conditional builder
+            $sql = $this->build_conditional_response_view_sql();
+            if ($sql !== false) {
+                try {
+                    $this->db->query($sql);
+                    log_message('error', '[IPAK Emergency] View created via conditional builder');
+                } catch (Exception $e) {
+                    log_message('error', '[IPAK Emergency] Conditional builder failed: ' . $e->getMessage());
+                }
+            }
+        } elseif ($skmExists) {
+            // Only skm_data_skm exists — create view from SKM only
+            $sql = "CREATE OR REPLACE VIEW ipak_all_responses AS
+SELECT 'SKM' AS response_source, kode, NULL AS nib, NULL AS permohonan_id,
+       NULL AS nama_responden, NULL AS status_responden, NULL AS responden,
+       NULL AS mobile, NULL AS gender, NULL AS usia, NULL AS pekerjaan_id,
+       NULL AS pendidikan_id, NULL AS sektor, NULL AS jenis_ijin,
+       tgl_pengisian, data_skm_id, NULL AS data_skm_nilai, 0 AS total,
+       rata, NULL AS saran, NULL AS keterangan, NULL AS tgl_buat,
+       flag_skm, NULL AS jenis_survei, NULL AS kode_survei_unik,
+       NULL AS kode_pengisian, NULL AS versi_survei, NULL AS resi, 1 AS is_legacy_skm
+FROM skm_data_skm WHERE flag_skm = 1";
+            $this->db->query($sql);
+            log_message('error', '[IPAK Emergency] SKM-only fallback view created');
+        } elseif ($flexExists) {
+            // Only ipak_survey_responses exists
+            $sql = "CREATE OR REPLACE VIEW ipak_all_responses AS
+SELECT 'SURVEY' AS response_source, kode, nib, permohonan_id,
+       nama_responden, status_responden, responden,
+       mobile, gender, usia, pekerjaan_id,
+       pendidikan_id, sektor, jenis_ijin,
+       tgl_pengisian, data_skm_id, data_skm_nilai, total,
+       rata, saran, keterangan, tgl_buat,
+       flag_skm, jenis_survei, kode_survei_unik,
+       kode_pengisian, versi_survei, resi, is_legacy_skm
+FROM ipak_survey_responses";
+            $this->db->query($sql);
+            log_message('error', '[IPAK Emergency] FLEX-only fallback view created');
         }
     }
 
