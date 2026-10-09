@@ -3,6 +3,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Ipaksurvey_model extends CI_Model
 {
+    public function __construct()
+    {
+        parent::__construct();
+        
+        // Emergency: Ensure ipak_all_responses view exists before any query
+        // This prevents "Table doesn't exist" errors on production servers
+        // where sync_database() may not have been run yet
+        static $viewChecked = false;
+        if (!$viewChecked) {
+            $viewChecked = true;
+            if (!$this->db->table_exists('ipak_all_responses')) {
+                $this->sync_database();
+            }
+        }
+    }
+
     /**
      * Jawaban yang tertimpa saat jawaban dirakit per question_id.
      *
@@ -2677,6 +2693,14 @@ class Ipaksurvey_model extends CI_Model
             $this->apply_filters($filters, 's');
             return $this->db->get()->row_array();
         }
+        if (!$this->db->table_exists($this->allResponsesView)) {
+            $this->sync_database();
+            if (!$this->db->table_exists($this->allResponsesView)) {
+                $this->load->database();
+                return ['total_responses' => 0, 'average_score' => 0, 'minimum_score' => 0, 'maximum_score' => 0];
+            }
+        }
+
         $this->db->select('COUNT(*) AS total_responses, COALESCE(AVG(rata), 0) AS average_score, COALESCE(MIN(rata), 0) AS minimum_score, COALESCE(MAX(rata), 0) AS maximum_score', false);
         $this->apply_filters($filters);
         return $this->db->get($this->allResponsesView)->row_array();
@@ -2685,6 +2709,12 @@ class Ipaksurvey_model extends CI_Model
     public function monthly_scores($year, array $filters = [])
     {
         $surveyId = isset($filters['survey_id']) ? (int) $filters['survey_id'] : 0;
+        if (!$this->db->table_exists($this->allResponsesView)) {
+            $this->sync_database();
+            if (!$this->db->table_exists($this->allResponsesView)) {
+                return array_fill(1, 12, ['total' => 0, 'score' => 0]);
+            }
+        }
         if ($surveyId > 0 && $this->is_legacy_skm_survey($surveyId)) {
             $this->db
                 ->select('MONTH(tgl_pengisian) AS month_no,COUNT(*) AS total,AVG(rata) AS score', false)
