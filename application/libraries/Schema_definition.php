@@ -435,7 +435,7 @@ class Schema_definition
                     'request_origin' => ['type' => 'VARCHAR(255)', 'nullable' => true],
                     'response_status' => ['type' => 'INT', 'nullable' => false],
                     'response_time_ms' => ['type' => 'INT', 'nullable' => false],
-                    'request_params' => ['type' => 'JSON', 'nullable' => true],
+                    'request_params' => ['type' => 'LONGTEXT', 'nullable' => true],
                     'error_message' => ['type' => 'TEXT', 'nullable' => true],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
