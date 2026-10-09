@@ -463,34 +463,7 @@ class Schema_definition
                 'sql' => "CREATE OR REPLACE VIEW `ipak_all_responses` AS
 SELECT
     'SKM' AS response_source,
-    d.kode,
-    d.nib,
-    d.permohonan_id,
-    d.nama_responden,
-    d.status_responden,
-    d.responden,
-    d.mobile,
-    d.gender,
-    d.usia,
-    d.pekerjaan_id,
-    d.pendidikan_id,
-    d.sektor,
-    d.jenis_ijin,
-    d.tgl_pengisian,
-    d.data_skm_id,
-    d.data_skm_nilai,
-    d.total,
-    d.rata,
-    d.saran,
-    d.keterangan,
-    d.tgl_buat,
-    d.flag_skm,
-    NULL AS jenis_survei,
-    NULL AS kode_survei_unik,
-    NULL AS kode_pengisian,
-    NULL AS versi_survei,
-    NULL AS resi,
-    1 AS is_legacy_skm
+    d.*
 FROM skm_data_skm d
 WHERE d.flag_skm = 1
 
@@ -498,34 +471,7 @@ UNION ALL
 
 SELECT
     'SURVEY' AS response_source,
-    r.kode,
-    r.nib,
-    r.permohonan_id,
-    r.nama_responden,
-    r.status_responden,
-    r.responden,
-    r.mobile,
-    r.gender,
-    r.usia,
-    r.pekerjaan_id,
-    r.pendidikan_id,
-    r.sektor,
-    r.jenis_ijin,
-    r.tgl_pengisian,
-    r.data_skm_id,
-    r.data_skm_nilai,
-    r.total,
-    r.rata,
-    r.saran,
-    r.keterangan,
-    r.tgl_buat,
-    r.flag_skm,
-    r.jenis_survei,
-    r.kode_survei_unik,
-    r.kode_pengisian,
-    r.versi_survei,
-    r.resi,
-    r.is_legacy_skm
+    r.*
 FROM ipak_survey_responses r;",
             ],
         ];
