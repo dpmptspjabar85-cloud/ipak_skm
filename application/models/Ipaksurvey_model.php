@@ -4001,18 +4001,25 @@ class Ipaksurvey_model extends CI_Model
         $dbName = $this->db->database;
         $databaseForeignKeys = $this->get_database_foreign_keys();
 
-        $results = [
-            'tables_created' => [],
-            'tables_existed' => [],
-            'columns_added' => [],
-            'columns_existed' => [],
-            'indexes_created' => [],
-            'indexes_existed' => [],
-            'foreign_keys_created' => [],
-            'foreign_keys_existed' => [],
-            'foreign_keys_skipped' => [],
-            'errors' => [],
-        ];
+        $results['foreign_keys_created'] = [];
+        $results['foreign_keys_existed'] = [];
+        $results['foreign_keys_skipped'] = [];
+        $results['errors'] = [];
+
+        // Handle ipak_all_responses VIEW with conditional column mapping
+        if (isset($requiredSchema['ipak_all_responses'])) {
+            $viewSql = $this->build_conditional_response_view_sql();
+            if ($viewSql !== false) {
+                try {
+                    $this->db->query($viewSql);
+                    $results['tables_created'][] = 'ipak_all_responses';
+                } catch (Exception $e) {
+                    $results['errors'][] = "Failed to create view ipak_all_responses: " . $e->getMessage();
+                }
+            } else {
+                $results['errors'][] = "Skipped ipak_all_responses view: required source tables not found";
+            }
+        }
 
         foreach ($requiredSchema as $tableName => $tableDef) {
             // Handle VIEW definitions
@@ -4173,6 +4180,90 @@ class Ipaksurvey_model extends CI_Model
             $fks[$row['CONSTRAINT_NAME']] = $row;
         }
         return $fks;
+    }
+
+    /**
+     * Build ipak_all_responses VIEW with conditional column mapping.
+     * Detects which tables exist and which columns are available,
+     * then constructs a UNION ALL view that only uses existing columns.
+     */
+    private function build_conditional_response_view_sql()
+    {
+        $db = $this->db;
+
+        // Check if source tables exist
+        $skmTableExists = $db->table_exists('skm_data_skm');
+        $surveyTableExists = $db->table_exists('ipak_survey_responses');
+
+        if (!$skmTableExists || !$surveyTableExists) {
+            // Can't build view without both source tables
+            return false;
+        }
+
+        // Get columns from both tables
+        $skmColumns = array_keys($this->get_table_columns('skm_data_skm'));
+        $surveyColumns = array_keys($this->get_table_columns('ipak_survey_responses'));
+
+        // Define the canonical column order (for consistent UNION ALL)
+        $canonicalColumns = [
+            'kode', 'nib', 'permohonan_id', 'nama_responden', 'status_responden',
+            'responden', 'mobile', 'gender', 'usia', 'pekerjaan_id', 'pendidikan_id',
+            'sektor', 'jenis_ijin', 'tgl_pengisian', 'data_skm_id', 'data_skm_nilai',
+            'total', 'rata', 'saran', 'keterangan', 'tgl_buat', 'flag_skm',
+            'jenis_survei', 'kode_survei_unik', 'kode_pengisian', 'versi_survei',
+            'resi', 'is_legacy_skm'
+        ];
+
+        // Build column lists for each SELECT
+        $skmSelectColumns = $this->build_select_columns('d', $skmColumns, $canonicalColumns);
+        $surveySelectColumns = $this->build_select_columns('r', $surveyColumns, $canonicalColumns);
+
+        // Get the common column count (both must match for UNION ALL)
+        $skmCount = count($skmSelectColumns);
+        $surveyCount = count($surveySelectColumns);
+
+        // Align column counts - pad with NULL if needed
+        $maxCount = max($skmCount, $surveyCount);
+        while (count($skmSelectColumns) < $maxCount) {
+            $skmSelectColumns[] = 'NULL AS extra_col_' . (count($skmSelectColumns) + 1);
+        }
+        while (count($surveySelectColumns) < $maxCount) {
+            $surveySelectColumns[] = 'NULL AS extra_col_' . (count($surveySelectColumns) + 1);
+        }
+
+        $skmSelect = "    'SKM' AS response_source,\n    " . implode(",\n    ", $skmSelectColumns);
+        $surveySelect = "    'SURVEY' AS response_source,\n    " . implode(",\n    ", $surveySelectColumns);
+
+        $sql = "CREATE OR REPLACE VIEW `ipak_all_responses` AS
+SELECT
+{$skmSelect}
+FROM skm_data_skm d
+WHERE d.flag_skm = 1
+
+UNION ALL
+
+SELECT
+{$surveySelect}
+FROM ipak_survey_responses r";
+
+        return $sql;
+    }
+
+    /**
+     * Build column selection for a table, mapping canonical names
+     * to actual columns if they exist, otherwise using NULL AS.
+     */
+    private function build_select_columns($alias, $actualColumns, $canonicalColumns)
+    {
+        $columns = [];
+        foreach ($canonicalColumns as $col) {
+            if (in_array($col, $actualColumns)) {
+                $columns[] = "{$alias}.{$col}";
+            } else {
+                $columns[] = "NULL AS {$col}";
+            }
+        }
+        return $columns;
     }
 
     private function get_database_foreign_keys()

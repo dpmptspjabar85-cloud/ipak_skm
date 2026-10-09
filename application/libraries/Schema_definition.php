@@ -458,22 +458,6 @@ class Schema_definition
                 'charset' => 'utf8',
                 'collate' => 'utf8_general_ci',
             ],
-            'ipak_all_responses' => [
-                'type' => 'VIEW',
-                'sql' => "CREATE OR REPLACE VIEW `ipak_all_responses` AS
-SELECT
-    'SKM' AS response_source,
-    d.*
-FROM skm_data_skm d
-WHERE d.flag_skm = 1
-
-UNION ALL
-
-SELECT
-    'SURVEY' AS response_source,
-    r.*
-FROM ipak_survey_responses r;",
-            ],
         ];
     }
 }
