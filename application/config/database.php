@@ -73,15 +73,24 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $active_group = 'default';
 $query_builder = TRUE;
 
+// Production database credentials — override via environment variables
+// Set these in server environment (e.g. Apache SetEnv, .env file, or systemd)
+// Example: DB_HOST=localhost DB_USER=ipak_user DB_PASS=secret123 DB_NAME=db_sicantik_backoffice
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbUser = getenv('DB_USER') ?: 'root';
+$dbPass = getenv('DB_PASS') ?: '';
+$dbName = getenv('DB_NAME') ?: 'backoffice';
+$dbPort = getenv('DB_PORT') ?: '3306';
+
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => 'localhost',
-	'username' => 'root',
-	'password' => '',
-	'database' => 'backoffice',
-	'port' => '3306',
+	'hostname' => $dbHost,
+	'username' => $dbUser,
+	'password' => $dbPass,
+	'database' => $dbName,
+	'port' => $dbPort,
 	'dbdriver' => 'mysqli',
-	'dbprefix' => '',
+	'dbpprefix' => '',
 	'pconnect' => FALSE,
 	// Hanya nyalakan di development. Di production error database ikut
 	// dicetak ke layar, yang membocorkan struktur database sekaligus
