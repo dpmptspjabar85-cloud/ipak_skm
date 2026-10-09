@@ -97,7 +97,13 @@ ServerSignature Off
 	#     Harus paling akhir. Conditions -f dan -d membuat Apache melayani
 	#     berkas/direktori nyata langsung, jadi semua yang perlu diblokir harus
 	#     sudah tertangkap aturan di atas.
+	# 
+	#  IMPORTANT: Explicitly allow static assets to be served directly
+	#  This prevents mod_rewrite from intercepting CSS/JS/PNG requests
 	# =========================================================================
+	# Bypass routing for static assets
+	RewriteRule ^(assets|images|css|js|img)/ - [L,NC]
+	
 	RewriteCond $1 !^(index\.php|resources|robots\.txt)
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteCond %{REQUEST_FILENAME} !-d
