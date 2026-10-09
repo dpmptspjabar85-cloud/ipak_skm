@@ -2892,9 +2892,7 @@ FROM ipak_survey_responses";
         }
         if (!empty($filters['unit_id'])) {
             $unitId = (int) $filters['unit_id'];
-            $metadataUnit = "CAST(JSON_UNQUOTE(JSON_EXTRACT(" .
-                "IF(JSON_VALID(" . $prefix . "keterangan), " . $prefix . "keterangan, '{}'), " .
-                "'$.unit_id')) AS UNSIGNED)";
+            $metadataUnit = $this->build_unit_id_expression($prefix . 'keterangan', $prefix . 'jenis_ijin');
             $this->db->group_start()
                 ->where(
                     $prefix . 'jenis_ijin IN (SELECT id FROM trperizinan WHERE dinas_pengelola = ' . $unitId . ')',
@@ -3445,8 +3443,7 @@ FROM ipak_survey_responses";
     public function response_unit_options(array $filters = [])
     {
         unset($filters['unit_id']);
-        $metadataUnit = "CAST(JSON_UNQUOTE(JSON_EXTRACT(" .
-            "IF(JSON_VALID(s.keterangan), s.keterangan, '{}'), '$.unit_id')) AS UNSIGNED)";
+        $metadataUnit = $this->build_unit_id_expression('s.keterangan', 's.jenis_ijin');
         $unitExpression = 'COALESCE(NULLIF(' . $metadataUnit . ', 0), NULLIF(p.dinas_pengelola, 0), 0)';
         $this->start_response_option_query($unitExpression . ' AS option_value', $filters);
         $query = $this->db
@@ -4281,6 +4278,54 @@ FROM ipak_survey_responses";
     {
         $decoded = json_decode((string) $value, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Build a MariaDB 5.6-compatible expression to extract unit_id from JSON metadata.
+     * This replaces JSON_EXTRACT/JSON_UNQUOTE which are not available in MySQL 5.6.
+     *
+     * The keterangan field stores JSON like {"unit_id":123,"other":"data"}
+     * We parse this using SUBSTRING_INDEX to extract the numeric unit_id.
+     *
+     * @param string $keteranganField  Fully-qualified column name (e.g., "s.keterangan")
+     * @param string $jenisIjinField   Fully-qualified column name (e.g., "s.jenis_ijin")
+     * @return string SQL expression that returns unit_id as integer
+     */
+    private function build_unit_id_expression($keteranganField, $jenisIjinField)
+    {
+        // Check if JSON functions are available (MySQL 5.7+ / MariaDB 10.2+)
+        static $jsonAvailable = null;
+        if ($jsonAvailable === null) {
+            try {
+                $result = $this->db->query("SELECT JSON_EXTRACT('{}', '$')")->row_array();
+                $jsonAvailable = true;
+            } catch (Exception $e) {
+                $jsonAvailable = false;
+            }
+        }
+        
+        if ($jsonAvailable) {
+            return "CAST(JSON_UNQUOTE(JSON_EXTRACT(" .
+                "IF(JSON_VALID({$keteranganField}), {$keteranganField}, '{}'), " .
+                "'$.unit_id')) AS UNSIGNED)";
+        }
+        
+        // MariaDB 5.6 fallback: parse JSON manually using SUBSTRING_INDEX
+        // Extracts the number after "unit_id":
+        // {"unit_id":123, ...} → returns 123
+        // {"unit_id": 123, ...} → returns 123
+        $fallback = "CAST(TRIM(REPLACE(REPLACE("
+            . "SUBSTRING_INDEX(SUBSTRING_INDEX({$keteranganField}, 'unit_id', -1), ':', 1), '"
+            . "', ''), '"
+            . "', '')) AS UNSIGNED)";
+        
+        // If keterangan doesn't contain unit_id, fall back to trperizinan join
+        return "COALESCE(NULLIF({$fallback}, 0), "
+            . "NULLIF((SELECT id FROM trperizinan WHERE dinas_pengelola = "
+            . "CAST(TRIM(REPLACE(REPLACE("
+            . "SUBSTRING_INDEX(SUBSTRING_INDEX({$keteranganField}, 'unit_id', -1), ':', 1), '"
+            . "', ''), '"
+            . "', '')) AS UNSIGNED)), 0), 0)";
     }
 
     public function sync_database()
