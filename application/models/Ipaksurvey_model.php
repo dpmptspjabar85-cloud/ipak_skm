@@ -4293,39 +4293,22 @@ FROM ipak_survey_responses";
      */
     private function build_unit_id_expression($keteranganField, $jenisIjinField)
     {
-        // Check if JSON functions are available (MySQL 5.7+ / MariaDB 10.2+)
-        static $jsonAvailable = null;
-        if ($jsonAvailable === null) {
-            try {
-                $result = $this->db->query("SELECT JSON_EXTRACT('{}', '$')")->row_array();
-                $jsonAvailable = true;
-            } catch (Exception $e) {
-                $jsonAvailable = false;
-            }
-        }
-        
-        if ($jsonAvailable) {
-            return "CAST(JSON_UNQUOTE(JSON_EXTRACT(" .
-                "IF(JSON_VALID({$keteranganField}), {$keteranganField}, '{}'), " .
-                "'$.unit_id')) AS UNSIGNED)";
-        }
-        
-        // MariaDB 5.6 fallback: parse JSON manually using SUBSTRING_INDEX
-        // Extracts the number after "unit_id":
-        // {"unit_id":123, ...} → returns 123
-        // {"unit_id": 123, ...} → returns 123
+        // MariaDB 5.6 / MySQL 5.6 do not support JSON functions.
+        // We assume JSON functions are unavailable in production environment
+        // and use the SUBSTRING_INDEX fallback parser for maximum compatibility.
+        //
+        // This fallback parses JSON like {"unit_id": 123} manually:
+        // 1. SUBSTRING_INDEX(keterangan, 'unit_id', -1) → ': 123, ...}'
+        // 2. SUBSTRING_INDEX(result, ':', 1) → ': 123'
+        // 3. REPLACE removes quotes and whitespace
+        // 4. CAST to UNSIGNED
         $fallback = "CAST(TRIM(REPLACE(REPLACE("
             . "SUBSTRING_INDEX(SUBSTRING_INDEX({$keteranganField}, 'unit_id', -1), ':', 1), '"
             . "', ''), '"
             . "', '')) AS UNSIGNED)";
-        
-        // If keterangan doesn't contain unit_id, fall back to trperizinan join
-        return "COALESCE(NULLIF({$fallback}, 0), "
-            . "NULLIF((SELECT id FROM trperizinan WHERE dinas_pengelola = "
-            . "CAST(TRIM(REPLACE(REPLACE("
-            . "SUBSTRING_INDEX(SUBSTRING_INDEX({$keteranganField}, 'unit_id', -1), ':', 1), '"
-            . "', ''), '"
-            . "', '')) AS UNSIGNED)), 0), 0)";
+
+        // If keterangan doesn't contain unit_id, return 0
+        return "COALESCE({$fallback}, 0)";
     }
 
     public function sync_database()
