@@ -26,6 +26,7 @@ if (is_array($displayMessage)) {
     p,pre{margin:0;color:#626c7e;font-size:13px;line-height:1.7}
     pre{overflow:auto;padding:14px;border-radius:10px;background:#f6f7fb;white-space:pre-wrap;word-break:break-word}
   </style>
+  <link rel="stylesheet" href="/ipak_skm/assets/ipak/css/app.css?v=<?= filemtime(FCPATH . 'assets/ipak/css/app.css') ?>">
 </head>
 <body>
 <main>
