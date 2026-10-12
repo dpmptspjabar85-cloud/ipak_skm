@@ -275,6 +275,7 @@ class Admin extends CI_Controller
 
         $this->render('admin/responses', [
             'page_title' => 'Data Respons',
+            'is_superadmin' => $this->is_superadmin(),
             'filters' => $filters,
             'rows' => $rows,
             'page' => $page,
@@ -2409,6 +2410,40 @@ class Admin extends CI_Controller
             $this->session->set_flashdata('kbli_success', 'Data KBLI ' . $row['kode_gabungan'] . ' berhasil dihapus.');
         }
         return redirect('admin/kbli');
+    }
+
+    /**
+     * Hapus satu data responden (superadmin only).
+     * URL format: /admin/responses/delete/{id}?source=SKM|SURVEY
+     */
+    public function delete_response($id = 0)
+    {
+        $this->require_login();
+        $this->require_superadmin();
+
+        if (strtoupper($this->input->method()) !== 'POST') {
+            show_error('Metode tidak diizinkan.', 405, 'Akses ditolak');
+        }
+
+        // Accept kode (string) from URL, not numeric ID
+        $responseKey = trim((string) $id);
+        $source = (string) $this->input->get('source', true);
+
+        if ($responseKey === '') {
+            $this->session->set_flashdata('response_error', 'ID data responden tidak valid.');
+            return redirect($this->input->get('return_url', true) ?: 'admin/responses');
+        }
+
+        $deleted = $this->ipak->delete_response($responseKey, $source);
+
+        if (!$deleted) {
+            $this->session->set_flashdata('response_error', 'Data responden belum berhasil dihapus.');
+        } else {
+            $this->session->set_flashdata('response_success', 'Data responden berhasil dihapus secara permanen.');
+        }
+
+        $returnUrl = $this->input->get('return_url', true) ?: 'admin/responses';
+        return redirect($returnUrl);
     }
 
     private function parse_kbli_form($id = 0)

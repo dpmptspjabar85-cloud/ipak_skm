@@ -198,7 +198,16 @@ $showUnitFilter = count($units) > 0;
                   ? $meta['service_other']
                   : (isset($services[(int) $row['sektor']]) ? $services[(int) $row['sektor']] : '-'))) ?></td>
           <td><span class="badge"><?= number_format((float) $row['rata'], 2) ?></span></td>
-          <td><a class="btn btn-secondary btn-sm" href="<?= site_url('admin/responses/' . rawurlencode($row['response_key'])) ?>">Detail</a></td>
+          <td>
+            <a class="btn btn-secondary btn-sm" href="<?= site_url('admin/responses/' . rawurlencode($row['response_key'])) ?>">Detail</a>
+            <?php if (isset($is_superadmin) && $is_superadmin): ?>
+              <form method="post" action="<?= site_url('admin/responses/delete/' . rawurlencode($row['kode'])) . '?source=' . (isset($row['response_source']) ? rawurlencode($row['response_source']) : 'SKM') . '&return_url=' . rawurlencode(current_url()) ?>"
+                    style="display:inline" onsubmit="return confirm('Yakin ingin menghapus data responden ini secara permanen? Tindakan tidak dapat dibatalkan.');">
+                <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                <button class="btn btn-danger btn-sm" type="submit">Hapus</button>
+              </form>
+            <?php endif; ?>
+          </td>
         </tr>
       <?php endforeach; ?>
     </tbody>

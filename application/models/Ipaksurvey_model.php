@@ -3737,6 +3737,37 @@ FROM ipak_survey_responses";
         return $rows;
     }
 
+    /**
+     * Hapus satu respons survei.
+     * Hanya dapat dipanggil oleh superadmin.
+     *
+     * @param int $id   ID respons (bisa primary key tabel SKM/survey/fleksibel)
+     * @param string $source  'SKM' | 'SURVEY' | 'FLEX'
+     * @return bool
+     */
+    public function delete_response($id, $source = '')
+    {
+        $id = (string) $id;
+        if ($id === '') {
+            return false;
+        }
+
+        if ($source === 'SKM' || $source === 'skm') {
+            return (bool) $this->db->where('kode', $id)->delete($this->table);
+        }
+
+        if ($source === 'SURVEY' || $source === 'FLEX' || $source === 'flex') {
+            return (bool) $this->db->where('kode', $id)->delete($this->flexResponseTable);
+        }
+
+        // Fallback: hapus dari kedua tabel
+        $this->db->trans_start();
+        $this->db->where('kode', $id)->delete($this->table);
+        $this->db->where('kode', $id)->delete($this->flexResponseTable);
+        $this->db->trans_complete();
+        return (bool) $this->db->trans_status();
+    }
+
     public function get_all_for_export(array $filters = [])
     {
         $surveyId = isset($filters['survey_id']) ? (int) $filters['survey_id'] : 0;
