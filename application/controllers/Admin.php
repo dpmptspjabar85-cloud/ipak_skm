@@ -1129,12 +1129,14 @@ class Admin extends CI_Controller
     public function users()
     {
         $this->require_login();
-        $this->require_superadmin();
+        // Administrator bisa lihat daftar akun
+        // Superadmin tambahan melihat semua kolom aksi
 
         $this->render('admin/users', [
             'page_title' => 'Kelola Akun',
             'users' => $this->ipak->get_admin_users(),
             'roles' => $this->ipak->get_admin_roles(),
+            'is_superadmin' => $this->is_superadmin(),
             'user_success' => $this->session->flashdata('user_success'),
             'user_error' => $this->session->flashdata('user_error'),
         ]);
@@ -1143,7 +1145,8 @@ class Admin extends CI_Controller
     public function create_user()
     {
         $this->require_login();
-        $this->require_superadmin();
+        // Hanya superadmin bisa assignment role superadmin
+        // Administrator bisa membuat akun admin biasa
 
         if (strtoupper($this->input->method()) === 'POST') {
             $username = strtoupper(trim((string) $this->input->post('username', true)));
@@ -1164,8 +1167,12 @@ class Admin extends CI_Controller
             if ($password === '' || strlen($password) < 6) {
                 $errors[] = 'Password minimal 6 karakter.';
             }
+            // Administrator hanya bisa set role 'admin', bukan 'superadmin'
             if (!in_array($roleName, ['superadmin', 'admin'], true)) {
                 $errors[] = 'Role tidak valid.';
+            }
+            if ($roleName === 'superadmin' && !$this->is_superadmin()) {
+                $errors[] = 'Hanya superadmin yang dapat membuat akun superadmin.';
             }
 
             if (!$errors) {
@@ -1198,7 +1205,7 @@ class Admin extends CI_Controller
     public function edit_user($id = 0)
     {
         $this->require_login();
-        $this->require_superadmin();
+        // Administrator bisa edit akun — hanya superadmin yang bisa edit role superadmin
 
         $userId = (int) $id;
         $user = $this->ipak->get_admin_by_id($userId);
@@ -1215,6 +1222,11 @@ class Admin extends CI_Controller
             $errors = [];
             if ($nama === '') {
                 $errors[] = 'Nama lengkap wajib diisi.';
+
+            // Administrator tidak boleh mengganti role ke superadmin
+            if ($roleName === 'superadmin' && !$this->is_superadmin()) {
+                $errors[] = 'Hanya superadmin yang dapat mengubah role ke superadmin.';
+            }
             }
             if (!in_array($roleName, ['superadmin', 'admin'], true)) {
                 $errors[] = 'Role tidak valid.';
