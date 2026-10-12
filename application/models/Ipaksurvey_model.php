@@ -1388,14 +1388,14 @@ FROM ipak_survey_responses";
             ->where('storage_profile', 'LEGACY_SKM')
             ->order_by('id', 'ASC')
             ->limit(1)
-            ->get('ipak_surveys')
+            ->where('is_deleted', 0)->get('ipak_surveys')
             ->row_array();
         if (!$row) {
             $row = $this->db
                 ->select('id')
                 ->where('survey_code', 'SKM')
                 ->limit(1)
-                ->get('ipak_surveys')
+                ->where('is_deleted', 0)->get('ipak_surveys')
                 ->row_array();
         }
         return $row ? (int) $row['id'] : 0;
@@ -1407,7 +1407,7 @@ FROM ipak_survey_responses";
             ->select('survey_code,storage_profile')
             ->where('id', (int) $surveyId)
             ->limit(1)
-            ->get('ipak_surveys')
+            ->where('is_deleted', 0)->get('ipak_surveys')
             ->row_array();
         return $row ? $this->is_legacy_skm_survey_definition($row) : false;
     }
@@ -1417,7 +1417,7 @@ FROM ipak_survey_responses";
         $survey = $this->db
             ->where('id', (int) $surveyId)
             ->limit(1)
-            ->get('ipak_surveys')
+            ->where('is_deleted', 0)->get('ipak_surveys')
             ->row_array();
         if (!$survey) {
             return false;
@@ -1534,7 +1534,8 @@ FROM ipak_survey_responses";
         $this->db
             ->from('ipak_forms f')
             ->join('ipak_form_surveys fs', 'fs.form_id = f.id', 'inner')
-            ->join('ipak_surveys s', 's.id = fs.survey_id', 'inner')
+            ->join('ipak_surveys s', 's.id = fs.survey_id AND s.is_deleted = 0', 'inner')
+            ->where('s.is_active', 1)
             ->join('ipak_survey_questions sq', 'sq.survey_id = s.id', 'inner')
             ->join('ipak_questions q', 'q.id = sq.question_id AND q.is_active = 1', 'inner')
             ->where('f.is_active', 1)
@@ -1931,7 +1932,8 @@ FROM ipak_survey_responses";
             ->select('s.id AS survey_id,s.survey_code,s.survey_name,s.index_label,s.color,s.is_active AS survey_active,f.id AS form_id,f.form_code,f.form_name,f.is_active AS form_active')
             ->from('ipak_form_surveys fs')
             ->join('ipak_forms f', 'f.id = fs.form_id', 'inner')
-            ->join('ipak_surveys s', 's.id = fs.survey_id', 'inner')
+            ->join('ipak_surveys s', 's.id = fs.survey_id AND s.is_deleted = 0', 'inner')
+            ->where('s.is_active', 1)
             ->where('(SELECT COUNT(*) FROM ipak_form_surveys form_members WHERE form_members.form_id = f.id) = 1', null, false);
         if ($activeOnly) {
             $this->db->where('s.is_active', 1)->where('f.is_active', 1);
@@ -1967,7 +1969,7 @@ FROM ipak_survey_responses";
         $survey = $this->db
             ->where('id', $surveyId)
             ->limit(1)
-            ->get('ipak_surveys')
+            ->where('is_deleted', 0)->get('ipak_surveys')
             ->row_array();
         if (!$survey) {
             return false;
@@ -2046,7 +2048,7 @@ FROM ipak_survey_responses";
         $rows = $this->db
             ->select('sq.question_id,s.id AS survey_id,s.survey_code,s.survey_name')
             ->from('ipak_survey_questions sq')
-            ->join('ipak_surveys s', 's.id = sq.survey_id', 'inner')
+            ->join('ipak_surveys s', 's.id = sq.survey_id AND s.is_deleted = 0', 'inner')
             ->get()
             ->result_array();
         $result = [];
@@ -2141,7 +2143,8 @@ FROM ipak_survey_responses";
         $this->db
             ->select('s.*,fs.sort_order AS form_sort_order,fs.section_label')
             ->from('ipak_form_surveys fs')
-            ->join('ipak_surveys s', 's.id = fs.survey_id', 'inner')
+            ->join('ipak_surveys s', 's.id = fs.survey_id AND s.is_deleted = 0', 'inner')
+            ->where('s.is_active', 1)
             ->where('fs.form_id', (int) $form['id']);
         if ($activeOnly) {
             $this->db->where('s.is_active', 1);
@@ -2278,7 +2281,7 @@ FROM ipak_survey_responses";
             return $this->db
                 ->select('r.*,COALESCE(r.kode_survei_unik,s.kode_unik) AS kode_survei_unik,s.survey_code,s.survey_name,s.index_label,s.color,f.form_code,f.form_name', false)
                 ->from('ipak_submission_surveys r')
-                ->join('ipak_surveys s', 's.id = r.survey_id', 'inner')
+                ->join('ipak_surveys s', 's.id = r.survey_id AND s.is_deleted = 0', 'inner')
                 ->join('ipak_forms f', 'f.id = r.form_id', 'inner')
                 ->where('r.flex_response_id', $responseId)
                 ->order_by('s.survey_name', 'ASC')
@@ -2297,7 +2300,7 @@ FROM ipak_survey_responses";
             $saved = $this->db
                 ->select('r.*,COALESCE(r.kode_survei_unik,s.kode_unik) AS kode_survei_unik,s.survey_code,s.survey_name,s.index_label,s.color,f.form_code,f.form_name', false)
                 ->from('ipak_submission_surveys r')
-                ->join('ipak_surveys s', 's.id = r.survey_id', 'inner')
+                ->join('ipak_surveys s', 's.id = r.survey_id AND s.is_deleted = 0', 'inner')
                 ->join('ipak_forms f', 'f.id = r.form_id', 'inner')
                 ->where('r.skm_data_id', $responseId)
                 ->where('r.survey_id', $legacySurveyId)
@@ -2310,7 +2313,7 @@ FROM ipak_survey_responses";
             $survey = $this->db
                 ->where('id', $legacySurveyId)
                 ->limit(1)
-                ->get('ipak_surveys')
+                ->where('is_deleted', 0)->get('ipak_surveys')
                 ->row_array();
             if ($survey) {
                 $category = $this->survey_score_category($legacySurveyId, (float) $parent['rata']);
@@ -2338,7 +2341,7 @@ FROM ipak_survey_responses";
         return $this->db
             ->select('r.*,COALESCE(r.kode_survei_unik,s.kode_unik) AS kode_survei_unik,s.survey_code,s.survey_name,s.index_label,s.color,f.form_code,f.form_name', false)
             ->from('ipak_submission_surveys r')
-            ->join('ipak_surveys s', 's.id = r.survey_id', 'inner')
+            ->join('ipak_surveys s', 's.id = r.survey_id AND s.is_deleted = 0', 'inner')
             ->join('ipak_forms f', 'f.id = r.form_id', 'inner')
             ->where('r.skm_data_id', $responseId)
             ->order_by('s.survey_name', 'ASC')
@@ -2373,7 +2376,7 @@ FROM ipak_survey_responses";
         $survey = $this->db
             ->where('id', $surveyId)
             ->limit(1)
-            ->get('ipak_surveys')
+            ->where('is_deleted', 0)->get('ipak_surveys')
             ->row_array();
         if (!$survey) {
             return ['ok' => false, 'message' => 'Survei tidak ditemukan.'];
@@ -2424,7 +2427,11 @@ FROM ipak_survey_responses";
                     ->delete('ipak_form_surveys');
             }
         }
-        $this->db->where('id', $surveyId)->delete('ipak_surveys');
+        // Soft-delete survey instead of permanently removing it
+        $this->db->where('id', $surveyId)->update('ipak_surveys', [
+            'is_deleted' => 1,
+            'deleted_at' => date('Y-m-d H:i:s'),
+        ]);
         $this->db->trans_complete();
 
         if (!$this->db->trans_status()) {
@@ -2454,7 +2461,7 @@ FROM ipak_survey_responses";
             $existingSurvey = $this->db
                 ->where('id', $surveyId)
                 ->limit(1)
-                ->get('ipak_surveys')
+                ->where('is_deleted', 0)->get('ipak_surveys')
                 ->row_array();
         }
         $existingQuestionLinks = [];
@@ -3018,7 +3025,7 @@ FROM ipak_survey_responses";
                 ->select('index_label')
                 ->where('id', $surveyId)
                 ->limit(1)
-                ->get('ipak_surveys')
+                ->where('is_deleted', 0)->get('ipak_surveys')
                 ->row_array();
             if ($survey) {
                 $surveyLabel = $survey['index_label'];
@@ -4016,7 +4023,7 @@ FROM ipak_survey_responses";
                 false
             )
             ->from('ipak_submission_surveys r')
-            ->join('ipak_surveys s', 's.id = r.survey_id', 'inner')
+            ->join('ipak_surveys s', 's.id = r.survey_id AND s.is_deleted = 0', 'inner')
             ->join('ipak_forms f', 'f.id = r.form_id', 'inner');
         $this->db->group_start();
         if ($flexIds) {
@@ -4169,7 +4176,7 @@ FROM ipak_survey_responses";
             ->select('id,survey_name,survey_code,index_label')
             ->where('id', $legacySurveyId)
             ->limit(1)
-            ->get('ipak_surveys')
+            ->where('is_deleted', 0)->get('ipak_surveys')
             ->row_array();
         if (empty($survey)) {
             return [];
