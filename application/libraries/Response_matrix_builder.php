@@ -254,6 +254,11 @@ class Response_matrix_builder
             $fields['Perangkat Daerah'] = (string) $this->unitNames[$unitId];
         }
 
+        $kbliCode = isset($entry['kbli_kode']) ? trim((string) $entry['kbli_kode']) : '';
+        if ($kbliCode !== '') {
+            $fields['Kode KBLI'] = $kbliCode;
+        }
+
         $fields['Kategori'] = $this->service_label($row, $meta);
         $fields['Survei'] = trim((string) $entry['survey_name']) !== ''
             ? (string) $entry['survey_name']
