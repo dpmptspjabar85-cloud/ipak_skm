@@ -813,9 +813,9 @@ class Response_matrix_builder
             }
 
             foreach ($this->ordered_question_columns() as $column) {
-                $record = isset($final['answers'][$column['column']])
-                    ? $final['answers'][$column['column']]
-                    : null;
+                // $record = isset($final['answers'][$column['column']])
+                //     ? $final['answers'][$column['column']]
+                //     : null;
                 // $cells[$column['label']] = $record === null ? '' : $record['answer'];
                 if (!empty($this->options['include_scores'])) {
                     $scoreLabel = isset($column['score_label'])
