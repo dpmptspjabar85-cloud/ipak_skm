@@ -349,7 +349,7 @@ class Admin extends CI_Controller
             $responseAnswers = $this->ipak->get_response_answers((int) $row['kode'], $responseSource);
             $answersByQuestion = [];
             foreach ($responseAnswers as $answer) {
-                $answersByQuestion[(int) $answer['question_id']] = $answer['option_label_snapshot'];
+                $answersByQuestion[(int) $answer['question_id']] = $answer['normalized_score'];
             }
             $flexibleFieldLabels = [];
             foreach ($this->ipak->get_response_fields((int) $row['kode'], $responseSource) as $responseField) {
