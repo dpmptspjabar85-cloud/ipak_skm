@@ -58,17 +58,19 @@ class Schema_definition
                 'charset' => 'utf8',
                 'collate' => 'utf8_general_ci',
             ],
-            'ipak_response_answers' => [
+                'ipak_response_answers' => [
                 'columns' => [
                     'id' => ['type' => 'BIGINT UNSIGNED', 'auto_increment' => true, 'nullable' => false, 'primary' => true],
                     'flex_response_id' => ['type' => 'BIGINT UNSIGNED', 'nullable' => true],
                     'kode' => ['type' => 'BIGINT UNSIGNED', 'nullable' => false],
                     'question_id' => ['type' => 'INT UNSIGNED', 'nullable' => false],
-                    'option_id' => ['type' => 'INT UNSIGNED', 'nullable' => false],
-                    'option_code_snapshot' => ['type' => 'VARCHAR(10)', 'nullable' => false],
-                    'option_label_snapshot' => ['type' => 'VARCHAR(150)', 'nullable' => false],
-                    'option_value_snapshot' => ['type' => 'DECIMAL(8,2)', 'nullable' => false],
-                    'normalized_score_snapshot' => ['type' => 'DECIMAL(6,2)', 'nullable' => false],
+                    'answer_option_id' => ['type' => 'INT UNSIGNED', 'nullable' => true],
+                    'option_code' => ['type' => 'VARCHAR(10)', 'nullable' => false],
+                    'option_label' => ['type' => 'VARCHAR(150)', 'nullable' => false],
+                    'option_value' => ['type' => 'DECIMAL(8,2)', 'nullable' => false],
+                    'normalized_score' => ['type' => 'DECIMAL(6,2)', 'nullable' => false],
+                    // Legacy fallback kolom untuk migrasi data lama (diisi saat migrate_skm_data_ke_respon_answer)
+                    'normalized_score_snapshot' => ['type' => 'DECIMAL(6,2)', 'nullable' => true, 'default' => null],
                     'created_at' => ['type' => 'DATETIME', 'nullable' => true, 'default' => null],
                 ],
                 'indexes' => [

@@ -410,7 +410,7 @@ class Markdown_grouped_writer
      *   score_key       Kunci baris untuk nilai jawaban.
      *   score_header    Judul kolom nilai, default "Nilai".
      *   score_keys      Kolom nilai tambahan per soal (opsional), misal
-     *                   array('Kode Opsi' => 'option_code_snapshot').
+     *                   array('Kode Opsi' => 'option_code').
      *
      * @param  array  $rows
      * @param  string $referenceKey
@@ -425,7 +425,7 @@ class Markdown_grouped_writer
 
         $questionKey = isset($config['question_key']) ? $config['question_key'] : 'question_code';
         $questionLabelKey = isset($config['question_label']) ? $config['question_label'] : 'question_text';
-        $answerKey = isset($config['answer_key']) ? $config['answer_key'] : 'option_label_snapshot';
+        $answerKey = isset($config['answer_key']) ? $config['answer_key'] : 'option_label';
         $scoreKey = isset($config['score_key']) ? $config['score_key'] : 'normalized_score';
         $scoreHeader = isset($config['score_header']) ? (string) $config['score_header'] : 'Nilai';
         $extraScoreKeys = isset($config['score_keys']) && is_array($config['score_keys'])

@@ -900,10 +900,9 @@ FROM ipak_survey_responses";
                         'answer_option_id' => (int) $detail['answer_option_id'],
                         'answer_value' => (float) $detail['option_value'],
                         'normalized_score' => (float) $detail['normalized_score'],
-                        'question_text_snapshot' => $detail['question_text'],
-                        'option_label_snapshot' => $detail['option_label'],
-                        'measurement_snapshot' => $detail['measurement_name'],
-                        'category_snapshot' => $detail['category_name'],
+                        'option_label' => $detail['option_label'],
+                        'option_code' => $detail['option_code'] ?? '',
+                        'option_value' => $detail['option_value'],
                         'created_at' => date('Y-m-d H:i:s'),
                     ];
                 }
@@ -4102,7 +4101,7 @@ FROM ipak_survey_responses";
         $this->db
             ->select(
                 'r.survey_id,r.flex_response_id,r.skm_data_id,ra.question_id,'
-                . 'ra.option_label_snapshot,ra.option_code_snapshot,ra.option_value_snapshot,'
+                . 'ra.option_label,ra.option_code,ra.option_value,'
                 // Kolom skor punya dua generasi. normalized_snapshot terisi 0
                 // pada seluruh baris live, jadi skor diambil dari kolom aktif
                 // lalu master opsi, dan baru dipakai apa adanya bila semuanya 0.
@@ -4119,7 +4118,7 @@ FROM ipak_survey_responses";
             ->join(
                 'ipak_answer_options oa_by_label',
                 'oa_by_label.question_id = ra.question_id'
-                . ' AND oa_by_label.option_label = ra.option_label_snapshot',
+                . ' AND oa_by_label.option_label = ra.option_label',
                 'left'
             );
         $this->db->group_start();
@@ -4159,16 +4158,16 @@ FROM ipak_survey_responses";
                     'question_id' => $questionId,
                     'question_code' => $row['question_code'],
                     'kept' => $result[$groupKey][$questionId]['option_label'],
-                    'dropped' => $row['option_label_snapshot'],
+                    'dropped' => $row['option_label'],
                 ];
             }
 
             $result[$groupKey][$questionId] = [
                 'question_code' => $row['question_code'],
                 'question_text' => $row['question_text'],
-                'option_label' => $row['option_label_snapshot'],
-                'option_code' => $row['option_code_snapshot'],
-                'option_value' => $row['option_value_snapshot'],
+                'option_label' => $row['option_label'],
+                'option_code' => $row['option_code'],
+                'option_value' => $row['option_value'],
                 'normalized_score' => $row['normalized_score'],
             ];
         }
@@ -4215,8 +4214,8 @@ FROM ipak_survey_responses";
 
         $answerRows = $this->db
             ->select(
-                'ra.skm_data_id,ra.question_id,ra.option_label_snapshot,ra.option_code_snapshot,'
-                . 'ra.option_value_snapshot,'
+                'ra.skm_data_id,ra.question_id,ra.option_label,ra.option_code,'
+                . 'ra.option_value,'
                 // Sama seperti jalur utama: kolom skor aktif dulu, lalu master
                 // opsi, baru nilai tersimpan apa adanya.
                 . 'COALESCE(NULLIF(ra.normalized_score,0),NULLIF(ra.normalized_score_snapshot,0),'
@@ -4230,7 +4229,7 @@ FROM ipak_survey_responses";
             ->join(
                 'ipak_answer_options oa_by_label',
                 'oa_by_label.question_id = ra.question_id'
-                . ' AND oa_by_label.option_label = ra.option_label_snapshot',
+                . ' AND oa_by_label.option_label = ra.option_label',
                 'left'
             )
             ->where_in('ra.skm_data_id', $skmIds)
@@ -4259,14 +4258,14 @@ FROM ipak_survey_responses";
                 if ((int) $answer['skm_data_id'] !== (int) $row['kode']) {
                     continue;
                 }
-                $result[$groupKey][(int) $answer['question_id']] = [
-                    'question_code' => $answer['question_code'],
-                    'question_text' => $answer['question_text'],
-                    'option_label' => $answer['option_label_snapshot'],
-                    'option_code' => $answer['option_code_snapshot'],
-                    'option_value' => $answer['option_value_snapshot'],
-                    'normalized_score' => $answer['normalized_score'],
-                ];
+            $result[$groupKey][(int) $answer['question_id']] = [
+                'question_code' => $answer['question_code'],
+                'question_text' => $answer['question_text'],
+                'option_label' => $answer['option_label'],
+                'option_code' => $answer['option_code'],
+                'option_value' => $answer['option_value'],
+                'normalized_score' => $answer['normalized_score'],
+            ];
             }
         }
         return $result;

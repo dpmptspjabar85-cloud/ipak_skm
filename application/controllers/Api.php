@@ -409,12 +409,12 @@ class Api extends CI_Controller
                             $item['answers'][] = [
                                 'question_id' => (int) $answer['question_id'],
                                 'question_code' => isset($answer['question_code']) ? $answer['question_code'] : '',
-                                'question' => $answer['question_text_snapshot'],
-                                'answer' => $answer['option_label_snapshot'],
+                                'question' => $answer['question_text'],
+                                'answer' => $answer['option_label'],
                                 'value' => (float) $answer['answer_value'],
                                 'normalized_score' => (float) $answer['normalized_score'],
-                                'measurement' => $answer['measurement_snapshot'],
-                                'category' => $answer['category_snapshot'],
+                                'measurement' => '',
+                                'category' => '',
                             ];
                         }
                         break;
