@@ -3943,7 +3943,8 @@ FROM ipak_survey_responses";
 
         $surveyQuestionCache = [];
 
-        // Batch query KBLI per responden supaya kolom Kode KBLI bisa ditambahkan ke export.
+        // Batch query KBLI per responden — data KBLI tersimpan sebagai JSON
+        // di field_value pada tabel ipak_response_fields dengan field_key = 'kbli'.
         $kbliByCode = [];
         $allCodes = [];
         foreach ($rows as $row) {
@@ -3952,24 +3953,18 @@ FROM ipak_survey_responses";
         $allCodes = $this->positive_ids($allCodes);
         if ($allCodes) {
             $this->db
-                ->select('rf.skm_data_id,rf.flex_response_id,fk.kode,rf.field_value')
+                ->select('rf.skm_data_id,rf.flex_response_id,rf.field_value')
                 ->from('ipak_response_fields rf')
-                ->join('ipak_forms kf', 'kf.id = rf.form_field_id', 'left')
-                ->where_in('rf.skm_data_id', array_filter($allCodes, function ($c) use ($rows) {
-                    // Hanya SKM codes
-                    return true;
-                }))
+                ->where_in('rf.skm_data_id', $allCodes)
+                ->or_where_in('rf.flex_response_id', $allCodes)
                 ->where('rf.field_key', 'kbli');
-
-            // Cari kolom mana yang dipakai — skema lama pakai skm_data_id, baru pakai flex_response_id
-            $this->db->group_start();
-            $this->db->where_in('rf.skm_data_id', $allCodes);
-            $this->db->or_where_in('rf.flex_response_id', $allCodes);
-            $this->db->group_end();
 
             $kbliRows = $this->db->get()->result_array();
             foreach ($kbliRows as $kb) {
                 $code = (int) ($kb['skm_data_id'] > 0 ? $kb['skm_data_id'] : $kb['flex_response_id']);
+                if ($code <= 0) {
+                    continue;
+                }
                 $snapshot = json_decode((string) $kb['field_value'], true);
                 $kbliKode = '';
                 if (is_array($snapshot)) {
