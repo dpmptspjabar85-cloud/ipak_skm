@@ -3,7 +3,7 @@ $queryFilters = array_filter($filters, function ($value) {
     return $value !== '' && $value !== 0 && $value !== null;
 });
 $exportUrl = site_url('admin/export') . ($queryFilters ? '?' . http_build_query($queryFilters) : '');
-$excelUrl = site_url('admin/export-excel') . ($queryFilters ? '?' . http_build_query($queryFilters) : '');
+$excelUrl = site_url('admin/export-excel') . ($queryFilters ? '?' . http_build_query($queryFilters) : '') . (!empty($queryFilters) ? '&' : '?') . 'skor=1';
 $showSurveyTypeFilter = count($survey_types) > 1;
 $showSurveyFilter = count($surveys) > 1;
 $showGenderFilter = count($genders) > 1;
