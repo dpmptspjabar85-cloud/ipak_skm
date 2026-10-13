@@ -100,11 +100,11 @@ $serviceLabel = !empty($metadata['sector_name'])
       <article class="answer-row">
         <p>
           <strong><?= html_escape($answer['question_code']) ?>.</strong>
-          <?= html_escape($answer['question_text']) ?>
-          <br><small><?= html_escape($answer['measurement_name']) ?> · <?= html_escape($answer['category_name']) ?></small>
+          <?= html_escape($answer['question_text_snapshot']) ?>
+          <br><small><?= html_escape($answer['measurement_snapshot']) ?> · <?= html_escape($answer['category_snapshot']) ?></small>
         </p>
         <strong>
-          <?= html_escape($answer['option_label']) ?>
+          <?= html_escape($answer['option_label_snapshot']) ?>
           · Nilai <?= number_format((float) $answer['normalized_score'], 2) ?>
         </strong>
       </article>
