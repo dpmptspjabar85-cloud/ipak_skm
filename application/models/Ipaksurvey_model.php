@@ -901,7 +901,7 @@ FROM ipak_survey_responses";
                         'answer_value' => (float) $detail['option_value'],
                         'normalized_score' => (float) $detail['normalized_score'],
                         'option_label' => $detail['option_label'],
-                        'option_code' => $detail['option_code'] ?? '',
+                        'option_code' => isset($detail['option_code']) ? $detail['option_code'] : '',
                         'option_value' => $detail['option_value'],
                         'created_at' => date('Y-m-d H:i:s'),
                     ];
