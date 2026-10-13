@@ -816,7 +816,7 @@ class Response_matrix_builder
                 $record = isset($final['answers'][$column['column']])
                     ? $final['answers'][$column['column']]
                     : null;
-                $cells[$column['label']] = $record === null ? '' : $record['answer'];
+                // $cells[$column['label']] = $record === null ? '' : $record['answer'];
                 if (!empty($this->options['include_scores'])) {
                     $scoreLabel = isset($column['score_label'])
                         ? $column['score_label']
