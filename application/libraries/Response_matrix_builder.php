@@ -388,6 +388,10 @@ class Response_matrix_builder
         }
 
         foreach ($entry['items'] as $item) {
+            $score = (float) $item['score'];
+            if ($score <= 0) {
+                continue;
+            }
             $this->counters['answer_items']++;
             $code = trim((string) $item['question_code']);
             if ($code === '') {
@@ -413,7 +417,7 @@ class Response_matrix_builder
             $answer = trim((string) $item['option_label']);
             $group['answers'][$column][] = array(
                 'answer' => $answer,
-                'score' => (float) $item['score'],
+                'score' => $score,
                 'timestamp' => $timestamp,
                 'survey' => (string) $entry['survey_name'],
                 'option_code' => (string) $item['option_code'],
@@ -813,10 +817,10 @@ class Response_matrix_builder
             }
 
             foreach ($this->ordered_question_columns() as $column) {
-                // $record = isset($final['answers'][$column['column']])
-                //     ? $final['answers'][$column['column']]
-                //     : null;
-                // $cells[$column['label']] = $record === null ? '' : $record['answer'];
+                $record = isset($final['answers'][$column['column']])
+                    ? $final['answers'][$column['column']]
+                    : null;
+                $cells[$column['label']] = $record === null ? '' : $record['answer'];
                 if (!empty($this->options['include_scores'])) {
                     $scoreLabel = isset($column['score_label'])
                         ? $column['score_label']
