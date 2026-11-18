@@ -22,8 +22,9 @@
       <span class="admin-nav-section">Ringkasan</span>
       <a class="<?= $section === 'dashboard' ? 'active' : '' ?>" href="<?= site_url('admin/dashboard') ?>"><span>▦</span> Dashboard</a>
 
-      <span class="admin-nav-section">Respons survei</span>
-      <a class="<?= in_array($section, ['responses', 'detail'], true) ? 'active' : '' ?>" href="<?= site_url('admin/responses') ?>"><span>≡</span> Data Respons</a>
+      <span class="admin-nav-section">Data</span>
+      <a class="<?= $section === 'responses' ? 'active' : '' ?>" href="<?= site_url('admin/responses') ?>"><span>≡</span> Data Respons</a>
+      <a class="<?= $section === 'response-skm' || $section === 'response-skm/detail' ? 'active' : '' ?>" href="<?= site_url('admin/response-skm') ?>"><span>📄</span> Data Responden SKM</a>
 
       <span class="admin-nav-section">Pengaturan survei</span>
       <a class="<?= $section === 'questions' ? 'active' : '' ?>" href="<?= site_url('admin/questions') ?>"><span>?</span> Pertanyaan & Jawaban</a>

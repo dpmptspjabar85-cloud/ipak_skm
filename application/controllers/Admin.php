@@ -292,6 +292,159 @@ class Admin extends CI_Controller
         ]);
     }
 
+    public function response_skm_list()
+    {
+        $this->require_login();
+
+        $keyword = trim((string) $this->input->get('keyword', true));
+        $statusFilter = (int) $this->input->get('status_responden', true);
+        $jenisSurveiFilter = strtoupper(trim((string) $this->input->get('jenis_survei', true)));
+        $dateFrom = trim((string) $this->input->get('date_from', true));
+        $dateTo = trim((string) $this->input->get('date_to', true));
+
+        $perPage = 20;
+        $page = max(1, (int) $this->input->get('page', true));
+
+        // Build filter query
+        $this->db
+            ->select('kode, nib, resi, permohonan_id, jenis_ijin, nama_responden, responden, mobile, gender, usia, pendidikan_id, pekerjaan_id, sektor, status_responden, tgl_pengisian, tgl_buat, total, rata, saran, keterangan, jenis_survei')
+            ->from('skm_data_skm')
+            ->where('flag_skm', 1);
+
+        if ($keyword !== '') {
+            $this->db->group_start();
+            $this->db->like('nama_responden', $keyword);
+            $this->db->or_like('nib', $keyword);
+            $this->db->or_like('resi', $keyword);
+            $this->db->or_like('responden', $keyword);
+            $this->db->group_end();
+        }
+
+        if ($statusFilter > 0) {
+            $this->db->where('status_responden', $statusFilter);
+        }
+
+        if ($jenisSurveiFilter !== '' && $jenisSurveiFilter !== 'SEMUA') {
+            $this->db->where('jenis_survei', $jenisSurveiFilter);
+        }
+
+        if ($dateFrom !== '' && $dateTo !== '') {
+            $this->db->where('tgl_pengisian >=', $dateFrom);
+            $this->db->where('tgl_pengisian <=', $dateTo);
+        } elseif ($dateFrom !== '') {
+            $this->db->where('tgl_pengisian >=', $dateFrom);
+        } elseif ($dateTo !== '') {
+            $this->db->where('tgl_pengisian <=', $dateTo);
+        }
+
+        $total = $this->db->count_all_results('', false);
+
+        $rows = $this->db
+            ->order_by('COALESCE(tgl_buat, CONCAT(tgl_pengisian, " 00:00:00"))', 'DESC', false)
+            ->order_by('kode', 'DESC')
+            ->limit($perPage, ($page - 1) * $perPage)
+            ->get()
+            ->result_array();
+
+        // Lookup labels
+        $educationLabels = $this->config->item('ipak_education') ?: [];
+        $jobLabels = $this->config->item('ipak_jobs') ?: [];
+        $sectorLabels = $this->ipak->sector_options();
+        $statusLabels = [1 => 'Pemohon', 2 => 'Pengurus Izin'];
+        $genderLabels = [1 => 'Laki-laki', 2 => 'Perempuan'];
+        $jenisSurveiLabels = [
+            'REGULER' => 'Reguler',
+            'PENGADAAAN' => 'Pengadaan',
+            'LAINNYA' => 'Lainnya',
+        ];
+
+        foreach ($rows as $index => $row) {
+            $rows[$index]['pendidikan_nama'] = isset($educationLabels[$row['pendidikan_id']])
+                ? $educationLabels[$row['pendidikan_id']]
+                : '-';
+            $rows[$index]['pekerjaan_nama'] = isset($jobLabels[$row['pekerjaan_id']])
+                ? $jobLabels[$row['pekerjaan_id']]
+                : '-';
+            $rows[$index]['sektor_nama'] = isset($sectorLabels[$row['sektor']])
+                ? $sectorLabels[$row['sektor']]
+                : '-';
+            $rows[$index]['status_nama'] = isset($statusLabels[$row['status_responden']])
+                ? $statusLabels[$row['status_responden']]
+                : '-';
+            $rows[$index]['gender_nama'] = isset($genderLabels[$row['gender']])
+                ? $genderLabels[$row['gender']]
+                : '-';
+            $rows[$index]['jenis_survei_label'] = isset($jenisSurveiLabels[$row['jenis_survei']])
+                ? $jenisSurveiLabels[$row['jenis_survei']]
+                : html_escape(ucfirst(strtolower(isset($row['jenis_survei']) ? $row['jenis_survei'] : 'SKM')));
+        }
+
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
+        $this->render('admin/response_skm_list', [
+            'page_title' => 'Data Responden SKM',
+            'rows' => $rows,
+            'page' => $page,
+            'total_pages' => $totalPages,
+            'total' => $total,
+            'filters' => [
+                'keyword' => $keyword,
+                'status_responden' => $statusFilter,
+                'jenis_survei' => $jenisSurveiFilter,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+            'status_labels' => $statusLabels,
+            'jenis_survei_labels' => $jenisSurveiLabels,
+            'has_filter_skm' => true,
+        ]);
+    }
+
+    public function response_skm_detail($kode)
+    {
+        $this->require_login();
+        $this->db
+            ->from('skm_data_skm')
+            ->where('kode', (int) $kode)
+            ->where('flag_skm', 1);
+        $row = $this->db->get()->row_array();
+
+        if (!$row) {
+            show_404();
+        }
+
+        // Lookup labels
+        $educationLabels = $this->config->item('ipak_education') ?: [];
+        $jobLabels = $this->config->item('ipak_jobs') ?: [];
+        $sectorLabels = $this->ipak->sector_options();
+        $statusLabels = [1 => 'Pemohon', 2 => 'Pengurus Izin'];
+        $genderLabels = [1 => 'Laki-laki', 2 => 'Perempuan'];
+
+        $row['pendidikan_nama'] = isset($educationLabels[$row['pendidikan_id']])
+            ? $educationLabels[$row['pendidikan_id']]
+            : '-';
+        $row['pekerjaan_nama'] = isset($jobLabels[$row['pekerjaan_id']])
+            ? $jobLabels[$row['pekerjaan_id']]
+            : '-';
+        $row['sektor_nama'] = isset($sectorLabels[$row['sektor']])
+            ? $sectorLabels[$row['sektor']]
+            : '-';
+        $row['status_nama'] = isset($statusLabels[$row['status_responden']])
+            ? $statusLabels[$row['status_responden']]
+            : '-';
+        $row['gender_nama'] = isset($genderLabels[$row['gender']])
+            ? $genderLabels[$row['gender']]
+            : '-';
+
+        $meta = $this->ipak->decode_metadata($row['keterangan']);
+
+        $this->render('admin/response_skm_detail', [
+            'page_title' => 'Detail Responden SKM ' . $row['kode'],
+            'row' => $row,
+            'meta' => $meta,
+        ]);
+    }
+
     public function detail($id)
     {
         $this->require_login();
