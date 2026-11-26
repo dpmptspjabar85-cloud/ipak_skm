@@ -493,7 +493,6 @@ class Admin extends CI_Controller
             $header[] = $survey['index_label'];
         }
         $header[] = 'Nilai Gabungan';
-        $header[] = 'Saran';
         fputcsv($output, $header);
 
         foreach ($rows as $row) {
@@ -543,7 +542,6 @@ class Admin extends CI_Controller
                     : '';
             }
             $line[] = number_format((float) $row['rata'], 2, '.', '');
-            $line[] = $row['saran'];
             fputcsv($output, $line);
         }
         fclose($output);

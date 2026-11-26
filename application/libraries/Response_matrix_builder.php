@@ -264,6 +264,11 @@ class Response_matrix_builder
             ? (string) $entry['survey_name']
             : '-';
 
+        $saran = trim((string) $row['saran']);
+        if ($saran !== '') {
+            $fields['Saran'] = $saran;
+        }
+
         foreach ($fields as $label => $value) {
             $this->merge_profile_value($group, $label, $value);
         }
